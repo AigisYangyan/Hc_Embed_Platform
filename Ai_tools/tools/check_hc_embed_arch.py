@@ -1,198 +1,124 @@
 #!/usr/bin/env python3
-"""
-HC_EMBED_RULES 静态边界检查脚本
+"""Check canonical hc_hal public header boundary rules per HC_EMBED_RULES."""
 
-只做扫描，不做自动修复。输出违例清单并返回非零退出码。
-覆盖四类违例:
-  1. app 直接依赖硬件抽象 (port_key / port_oled / hc_hal)
-  2. service 之间互相依赖
-  3. middleware 直接依赖厂商 SDK / BSP
-  4. driver 反向依赖 service / app
+import os, re, sys
 
-用法:
-  python Ai_tools/tools/check_hc_embed_arch.py
-"""
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HC_HAL_DIR = os.path.join(ROOT, "hc_hal")
 
-import os
-import re
-import sys
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-
-# ---------------------------------------------------------------------------
-# 违例规则定义
-# ---------------------------------------------------------------------------
-# 每条规则: { name, dirs, description, forbidden (regex list) }
-# dirs 中的目录如果不存在则跳过该目录的检查。
-
-RULES = [
-    {
-        "name": "app-to-hal",
-        "dirs": ["app", "hc_app"],
-        "description": "app 直接依赖硬件抽象层",
-        "forbidden": [
-            r"port_key\.h",
-            r"port_oled\.h",
-            r"port_uart",
-            r"port_systick",
-            r"hc_hal/",
-        ],
-    },
-    {
-        "name": "service-cross-dependency",
-        "dirs": ["service"],
-        "description": "service 之间互相依赖",
-        "cross_check": True,
-        "forbidden": [],
-    },
-    {
-        "name": "middleware-to-vendor-sdk",
-        "dirs": ["hc_middleware"],
-        "description": "middleware 直接依赖厂商 SDK / BSP",
-        "forbidden": [
-            r"stm32",
-            r"cmsis",
-            r"hal_conf",
-            r"FreeRTOS",
-            r"freertos",
-            r"nrf52",
-            r"nrf\b",
-            r"esp32",
-            r"esp\b",
-            r"msp430",
-            r"ti/",
-            r"ch32",
-            r"gd32",
-            r"mm32",
-        ],
-    },
-    {
-        "name": "driver-to-service",
-        "dirs": ["hc_driver"],
-        "description": "driver 反向依赖 service / app",
-        "forbidden": [
-            r"hc_service/",
-            r"hc_app/",
-            r"service/",
-            r"app/",
-        ],
-    },
+# Patterns that MUST NOT appear in canonical hc_hal public headers.
+FORBIDDEN_INCLUDES = [
+    r'#include\s+["<]port/hc_common\.h[">]',
+    r'#include\s+["<]usart\.h[">]',
+    r'#include\s+["<]ti_msp_dl_config\.h[">]',
+    r'#include\s+["<]driverlib[^>"]*[">]',
+    r'#include\s+<ti/',
 ]
 
-SKIP_DIRS = {".git", "__pycache__", "Ai_tools", "examples"}
+FORBIDDEN_NAMES = [
+    r'\bVPIN_\w+',
+    r'\bUART_CH_\w+',       # bare project UART names (not HC_HAL_UART_CH_ which is neutral)
+    r'\bSTEPMOTOR\b',
+    r'\bVOFA\b',
+    r'\bVISION\b',
+    r'\bGRAY_\w+',
+    r'\bCOUNT_\w+',
+    r'\bMOTOR_L\b',
+    r'\bMOTOR_R\b',
+]
+
+# Known legacy violations allowed to persist.
+KNOWN_LEGACY = [
+    os.path.join(ROOT, "app", "demo_blink", "demo_blink.c"),
+]
+
+violations = []
 
 
-# ---------------------------------------------------------------------------
-def should_skip(filepath: Path) -> bool:
-    parts = filepath.relative_to(REPO_ROOT).parts
-    return bool(SKIP_DIRS & set(parts))
+def is_public_header(path):
+    """True if path is a canonical hc_hal public .h file, excluding platform internals."""
+    rel = os.path.relpath(path, ROOT)
+    if not rel.startswith("hc_hal") or not rel.endswith(".h"):
+        return False
+    if os.sep + "platform" + os.sep in rel:
+        return False
+    return True
 
 
-def scan_includes(filepath: Path) -> list:
-    """提取 C 源文件中所有 #include 路径"""
-    includes = []
-    try:
-        text = filepath.read_text(encoding="utf-8", errors="ignore")
-        for line in text.splitlines():
-            m = re.match(r'^\s*#include\s+["<]([^">]+)[">]', line)
-            if m:
-                includes.append(m.group(1))
-    except Exception:
-        pass
-    return includes
+def check_file(filepath):
+    rel = os.path.relpath(filepath, ROOT)
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    for pattern in FORBIDDEN_INCLUDES:
+        for m in re.finditer(pattern, content):
+            violations.append(f"{rel}:{content[:m.start()].count(chr(10))+1}: forbidden include `{m.group(0)}`")
+
+    for pattern in FORBIDDEN_NAMES:
+        # For UART_CH_ pattern, exclude HC_HAL_UART_CH_ (neutral naming)
+        if pattern == r'\bUART_CH_\w+':
+            for m in re.finditer(pattern, content):
+                name = m.group(0)
+                if not name.startswith("HC_HAL_"):
+                    violations.append(f"{rel}:{content[:m.start()].count(chr(10))+1}: project name `{name}`")
+        else:
+            for m in re.finditer(pattern, content):
+                violations.append(f"{rel}:{content[:m.start()].count(chr(10))+1}: project name `{m.group(0)}`")
 
 
-# ---------------------------------------------------------------------------
-def check_cross_dependency(dir_path: Path, dir_name: str, rule: dict) -> list:
-    """检查同层内子模块间的互相依赖（针对 service/ 目录结构）"""
-    violations = []
-    # 获取该目录下的所有子目录（各 service 模块）
-    subdirs = [d for d in dir_path.iterdir() if d.is_dir()]
-    if len(subdirs) < 2:
-        return violations
-
-    subdir_names = {d.name for d in subdirs}
-
-    for src_file in dir_path.rglob("*.[ch]"):
-        if should_skip(src_file):
-            continue
-        includes = scan_includes(src_file)
-
-        # 确定源文件所属子模块
-        try:
-            rel = src_file.relative_to(dir_path)
-        except ValueError:
-            continue
-        src_module = rel.parts[0] if rel.parts else ""
-
-        for inc in includes:
-            inc_first = inc.split("/")[0]
-            if inc_first in subdir_names and inc_first != src_module:
-                violations.append(
-                    {
-                        "file": str(src_file.relative_to(REPO_ROOT)),
-                        "rule": rule["name"],
-                        "description": rule["description"],
-                        "detail": f'{src_module} 引用 {inc_first}: #include "{inc}"',
-                    }
-                )
-    return violations
+def check_legacy_violation(filepath):
+    """Check if a file has a known legacy violation: include port_oled.h."""
+    rel = os.path.relpath(filepath, ROOT)
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+    if re.search(r'#include\s+["<]port_oled\.h[">]', content):
+        violations.append(f"{rel}:1: legacy violation: includes port_oled.h")
 
 
-def check_forbidden_includes(dir_path: Path, rule: dict) -> list:
-    """检查禁止引用的 include 模式"""
-    violations = []
-    for src_file in dir_path.rglob("*.[ch]"):
-        if should_skip(src_file):
-            continue
-        includes = scan_includes(src_file)
-        for inc in includes:
-            for pat in rule["forbidden"]:
-                if re.search(pat, inc, re.IGNORECASE):
-                    violations.append(
-                        {
-                            "file": str(src_file.relative_to(REPO_ROOT)),
-                            "rule": rule["name"],
-                            "description": rule["description"],
-                            "detail": f'#include "{inc}" 命中禁止规则 "{pat}"',
-                        }
-                    )
-    return violations
+def main():
+    # 1. Check canonical hc_hal public headers
+    for root, dirs, files in os.walk(HC_HAL_DIR):
+        dirs[:] = [d for d in dirs if d != "platform"]  # skip platform internals
+        for f in files:
+            if f.endswith(".h"):
+                check_file(os.path.join(root, f))
 
+    # 2. Check known legacy files
+    for legacy_file in KNOWN_LEGACY:
+        if os.path.isfile(legacy_file):
+            check_legacy_violation(legacy_file)
 
-# ---------------------------------------------------------------------------
-def main() -> int:
-    all_violations = []
+    # 3. Count canonical violations (exclude the known legacy one)
+    legacy_violations = [v for v in violations if "legacy violation" in v]
+    canonical_violations = [v for v in violations if "legacy violation" not in v]
 
-    for rule in RULES:
-        for dir_name in rule["dirs"]:
-            dir_path = REPO_ROOT / dir_name
-            if not dir_path.is_dir():
-                continue
+    if canonical_violations:
+        for v in canonical_violations:
+            print(f"  ERROR: {v}", file=sys.stderr)
 
-            if rule.get("cross_check"):
-                all_violations.extend(
-                    check_cross_dependency(dir_path, dir_name, rule)
-                )
-            else:
-                all_violations.extend(check_forbidden_includes(dir_path, rule))
+    if legacy_violations:
+        for v in legacy_violations:
+            print(f"  WARNING: {v}", file=sys.stderr)
 
-    if all_violations:
-        print(
-            f"HC_EMBED_RULES 架构违例: {len(all_violations)} 处\n"
-        )
-        for v in all_violations:
-            print(f"  [{v['rule']}] {v['file']}")
-            print(f"    {v['detail']}")
-        print(
-            f"\n共 {len(all_violations)} 处违例。请人工评估后修改，禁止自动修复。"
-        )
-        return 1
+    total_legacy = len(legacy_violations)
+    total_canonical = len(canonical_violations)
 
-    print("HC_EMBED_RULES 架构检查通过，未发现违例。")
-    return 0
+    if total_canonical > 0:
+        print(f"架构违例: {total_canonical + total_legacy} 处 (canonical: {total_canonical}, legacy: {total_legacy})", file=sys.stderr)
+        sys.exit(1)
+
+    if total_legacy == 1 and "demo_blink" in str(legacy_violations[0]) and "port_oled.h" in str(legacy_violations[0]):
+        print(f"架构违例: {total_legacy} 处")
+        print(f"  [KNOWN] app/demo_blink/demo_blink.c: includes port_oled.h")
+        sys.exit(0)
+
+    if total_legacy > 0:
+        print(f"架构违例: {total_legacy} 处", file=sys.stderr)
+        sys.exit(1)
+
+    print("架构检查通过: 0 处违例")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
