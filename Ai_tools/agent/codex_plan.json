@@ -1,125 +1,93 @@
 {
-  "project_summary": "当前仓库 README 定义的是 HC_Sys_Menu 菜单框架分层，但目标架构已经明确收敛为 HC_EMBED_RULES：hc_common / hc_cfg / hc_hal / hc_driver / hc_middleware / hc_service / hc_task / hc_app。本施工单先不改业务代码，只通过文档基线、静态约束和最小平台骨架把后续改造边界锁死，避免继续向旧分层增加耦合。",
+  "project_summary": "当前需求是将 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator 优化为严格的 JSON 施工单输出器，只围绕 Ai_tools/agent/codex_plan.json 的既有 schema 生成 1 到 3 个可执行小任务，不输出解释性文本，不修改任何业务代码。",
   "tasks": [
     {
       "id": "T001",
-      "title": "固化 HC_EMBED_RULES 为仓库唯一架构基线",
-      "goal": "把 README 和执行规则中的目标分层统一改写为 HC_EMBED_RULES，并明确当前 port/runtime/service/app/ui 仅作为待迁移旧结构，不再作为继续扩展的新架构。",
+      "title": "将 SKILL.md 重写为严格 JSON-only 的施工单生成规则",
+      "goal": "把 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md 改成一个只产出合法 codex_plan.json 内容的指令文件，禁止解释性文本、Markdown 代码块、附加总结或非 schema 字段。",
       "allowed_files": [
-        "README.md",
-        "Ai_tools/prompts/GLOBAL_CLAUDE_RULES.md"
+        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md"
       ],
       "forbidden_files": [
-        "system/",
-        "runtime/",
-        "service/",
+        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml",
+        "C:\\Users\\Administrator\\.codex\\AGENTS.md",
+        "Ai_tools/agent/codex_plan.schema.json",
+        "Ai_tools/agent/codex_plan.example.json",
+        "Ai_tools/tools/validate_codex_plan.ps1",
+        "Ai_tools/prompts/CODEX_generate_json.md",
         "app/",
-        "ui/",
-        "port/",
-        "scheduler/",
         "examples/",
-        "C:/Users/Administrator/.codex/skills/"
+        "hc_cfg/",
+        "hc_common/",
+        "port/",
+        "runtime/",
+        "scheduler/",
+        "service/",
+        "system/",
+        "ui/"
       ],
       "steps": [
-        "阅读 README 中现有目录结构、分层依赖和编码红线，找出与 HC_EMBED_RULES 冲突的表述。",
-        "将 README 的架构说明收敛到 HC_EMBED_RULES，明确目标目录、依赖方向、禁止跨层调用和迁移状态。",
-        "更新 Ai_tools/prompts/GLOBAL_CLAUDE_RULES.md，让后续执行型代理默认遵守 HC_EMBED_RULES 分层，而不是继续沿用当前菜单框架分层。",
-        "运行 git diff --check。"
+        "读取 schema、example、当前 codex_plan.json 与现有 SKILL.md。",
+        "把输出契约改成 strict raw JSON only。",
+        "要求先读取 Ai_tools/agent/codex_plan.schema.json、Ai_tools/agent/codex_plan.example.json、当前 Ai_tools/agent/codex_plan.json。",
+        "明确默认只生成 1 到 3 个任务、只保留既有字段、禁止业务代码修改。",
+        "把 strict raw JSON only、no Markdown fences 两个英文锚点写进规则，供检查命令验证。"
       ],
-      "check_command": "git diff --check",
+      "check_command": "powershell -NoProfile -Command \"$p='C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md'; if (!(Test-Path $p)) { throw 'missing SKILL.md' }; $c=Get-Content $p -Raw; @('strict raw JSON only','no Markdown fences','Ai_tools/agent/codex_plan.schema.json','Ai_tools/agent/codex_plan.example.json','Ai_tools/agent/codex_plan.json') | ForEach-Object { if ($c -notlike \\\"*$_*\\\") { throw \\\"missing: $_\\\" } }; Write-Host 'SKILL.md checks passed'\"",
       "acceptance_criteria": [
-        "README 明确声明 HC_EMBED_RULES 是唯一目标架构。",
-        "规则文本明确禁止继续向旧的 port/runtime/service/app/ui 菜单框架增加新耦合。",
-        "没有修改任何业务代码目录内容。",
-        "git diff --check 通过。"
+        "SKILL.md 明确要求最终回复只能是原始 JSON。",
+        "SKILL.md 明确禁止 Markdown 代码块、前后说明、任务数量统计。",
+        "SKILL.md 明确要求只生成 schema 允许的字段。",
+        "没有修改 allowed_files 之外的任何文件。"
       ],
       "stop_conditions": [
-        "如果需要同时修改 system、runtime、service、app、ui、port、scheduler 下的源码才能完成任务，立即停止。",
-        "如果 README 中存在用户未确认的历史说明，删除会造成信息丢失，立即停止并说明冲突位置。",
-        "如果需要写入本地 .codex/skills 才能完成本任务，立即停止。"
+        "如果需要修改 schema/example/validator/prompt 才能实现，立即停止。",
+        "如果需要修改 .codex 下除 SKILL.md 外的其他文件，立即停止。",
+        "如果需要触碰 app/、service/、ui/、runtime/ 等业务目录，立即停止。"
       ]
     },
     {
       "id": "T002",
-      "title": "增加 HC_EMBED_RULES 静态边界检查脚本",
-      "goal": "新增一个只做扫描不做自动修复的架构检查脚本，用路径和 include 规则提前阻止 app 直连硬件、service 互相依赖、middleware 直连厂商 SDK 等违例模式。",
+      "title": "同步 openai.yaml 元数据以强制 JSON-only 调用入口",
+      "goal": "更新 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml，让展示名、简介和默认提示都收敛到严格 JSON 输出器定位。",
       "allowed_files": [
-        "Ai_tools/tools/check_hc_embed_arch.py",
-        "Ai_tools/prompts/GLOBAL_CLAUDE_RULES.md"
+        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml"
       ],
       "forbidden_files": [
-        "README.md",
-        "system/",
-        "runtime/",
-        "service/",
+        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md",
+        "C:\\Users\\Administrator\\.codex\\AGENTS.md",
+        "Ai_tools/agent/codex_plan.schema.json",
+        "Ai_tools/agent/codex_plan.example.json",
+        "Ai_tools/tools/validate_codex_plan.ps1",
+        "Ai_tools/prompts/CODEX_generate_json.md",
         "app/",
-        "ui/",
-        "port/",
-        "scheduler/",
         "examples/",
-        "C:/Users/Administrator/.codex/skills/"
+        "hc_cfg/",
+        "hc_common/",
+        "port/",
+        "runtime/",
+        "scheduler/",
+        "service/",
+        "system/",
+        "ui/"
       ],
       "steps": [
-        "根据 README 中的当前目录和 HC_EMBED_RULES 目标依赖，整理一组最小可执行的违例规则。",
-        "创建 Ai_tools/tools/check_hc_embed_arch.py，只扫描仓库文件路径和 include 文本，输出违例清单并返回非零退出码，不做自动改写。",
-        "在 Ai_tools/prompts/GLOBAL_CLAUDE_RULES.md 中补充该脚本的使用时机，作为后续执行任务前的边界检查。",
-        "运行 git diff --check。"
+        "读取更新后的 SKILL.md 与当前 openai.yaml。",
+        "把 short_description 改为强调 strict raw JSON only。",
+        "把 default_prompt 改为先读取 schema/example/current plan，再只输出合法 JSON，且只创建或更新 Ai_tools/agent/codex_plan.json。",
+        "保持 YAML 结构最小，只保留现有 interface 键位。"
       ],
-      "check_command": "git diff --check",
+      "check_command": "powershell -NoProfile -Command \"$p='C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml'; if (!(Test-Path $p)) { throw 'missing openai.yaml' }; $c=Get-Content $p -Raw; @('strict raw JSON only','only create or update Ai_tools/agent/codex_plan.json','Ai_tools/agent/codex_plan.schema.json','Ai_tools/agent/codex_plan.example.json') | ForEach-Object { if ($c -notlike \\\"*$_*\\\") { throw \\\"missing: $_\\\" } }; Write-Host 'openai.yaml checks passed'\"",
       "acceptance_criteria": [
-        "脚本至少覆盖 app 直接依赖硬件抽象、service 之间互相依赖、middleware 直接依赖厂商 SDK、driver 反向依赖 service 四类违例。",
-        "脚本只新增在 Ai_tools/tools/ 下，不修改业务代码。",
-        "规则说明与 HC_EMBED_RULES 一致，没有继续沿用旧菜单框架作为默认分层。",
-        "git diff --check 通过。"
+        "openai.yaml 的 short_description 和 default_prompt 都体现 JSON-only 契约。",
+        "默认提示要求先读 schema/example/current plan。",
+        "没有新增额外 YAML 顶层字段。",
+        "没有修改 allowed_files 之外的任何文件。"
       ],
       "stop_conditions": [
-        "如果脚本实现需要改动业务源码或调整现有目录结构，立即停止。",
-        "如果无法仅靠静态路径和 include 规则表达检查目标，立即停止并列出缺失信息。",
-        "如果任务扩展成完整 CI 或构建系统改造，立即停止。"
-      ]
-    },
-    {
-      "id": "T003",
-      "title": "建立 HC 平台最小公共头与配置骨架",
-      "goal": "按 HC_EMBED_RULES 创建最小 hc_common 与 hc_cfg 头文件骨架，为后续迁移提供唯一入口，但暂时不接入旧业务代码。",
-      "allowed_files": [
-        "hc_common/hc_err.h",
-        "hc_common/hc_types.h",
-        "hc_common/hc_def.h",
-        "hc_cfg/hc_target_cfg.h",
-        "hc_cfg/hc_board_cfg.h",
-        "hc_cfg/hc_feature_cfg.h",
-        "hc_cfg/hc_module_cfg.h"
-      ],
-      "forbidden_files": [
-        "README.md",
-        "system/",
-        "runtime/",
-        "service/",
-        "app/",
-        "ui/",
-        "port/",
-        "scheduler/",
-        "examples/",
-        "C:/Users/Administrator/.codex/skills/"
-      ],
-      "steps": [
-        "按 HC_EMBED_RULES 创建 hc_common 下的错误码、类型和基础宏头文件。",
-        "按 HC_EMBED_RULES 创建 hc_cfg 下的 target、board、feature、module 配置头文件，并在 hc_module_cfg.h 中写入最小依赖检查。",
-        "保持这些头文件为纯骨架，不 include 旧菜单框架模块，不改任何现有业务源码。",
-        "运行 git diff --check。"
-      ],
-      "check_command": "git diff --check",
-      "acceptance_criteria": [
-        "新增的头文件名称和职责与 HC_EMBED_RULES 一致。",
-        "hc_module_cfg.h 至少包含 service->middleware、middleware->driver、driver->hal 的依赖校验示例。",
-        "没有改动旧的 system、runtime、service、app、ui、port、scheduler 代码。",
-        "git diff --check 通过。"
-      ],
-      "stop_conditions": [
-        "如果需要把旧业务代码接入新头文件才能通过当前任务，立即停止。",
-        "如果任务演变为重命名旧目录或搬迁现有源码，立即停止。",
-        "如果需要新增 hc_hal、hc_driver、hc_middleware、hc_service、hc_task、hc_app 的实现文件而不只是骨架，立即停止。"
+        "如果需要改 .codex\\AGENTS.md、config.toml 或任何 repo prompt 才能生效，立即停止。",
+        "如果需要新增第二个 skill 才能实现，立即停止。",
+        "如果需要修改业务目录或 repo 校验脚本，立即停止。"
       ]
     }
   ]
