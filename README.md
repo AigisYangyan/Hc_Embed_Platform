@@ -2,7 +2,7 @@
 
 > **架构基线声明：HC_EMBED_RULES 是本仓库唯一目标架构。**
 >
-> 当前 `port/` `runtime/` `service/` `app/` `ui/` `system/` `scheduler/` 目录及其分层关系为 HC_Sys_Menu v1.0 遗留实现，处于待迁移状态。**禁止**在上述旧目录及分层中增加新耦合、新模块或新依赖关系。所有新增代码必须遵守 HC_EMBED_RULES 分层。
+> `port/` 的硬件抽象层已迁移至 `hc_hal/` + `hc_driver/`，旧 port 文件仅保留兼容转发。`runtime/` `service/` `app/` `ui/` `system/` `scheduler/` 仍为 HC_Sys_Menu v1.0 遗留实现，处于待迁移状态。**禁止**在上述旧目录及分层中增加新耦合、新模块或新依赖关系。所有新增代码必须遵守 HC_EMBED_RULES 分层。
 
 ---
 
@@ -23,11 +23,21 @@ framework/
 │   ├── hc_feature_cfg.h     #   功能模块开关裁剪
 │   └── hc_module_cfg.h      #   模块依赖校验与拓扑约束
 │
-├── hc_hal/                  # 硬件抽象层（与 MCU 相关的薄封装）
-│   └── ...                  #   GPIO / UART / I2C / SPI / SysTick 抽象
+├── hc_hal/                  # 硬件抽象层（GPIO/UART/I2C/PWM/DMA/SysTick/Delay/WDG）
+│   ├── hc_hal_gpio.h        #   GPIO 通用输入/输出/中断分发（不含编码器业务语义）
+│   ├── hc_hal_uart.h        #   UART 通用收发
+│   ├── hc_hal_i2c.h         #   I2C 通用读写
+│   ├── hc_hal_pwm.h         #   PWM 通用输出
+│   ├── hc_hal_dma.h         #   DMA 通用传输
+│   ├── hc_hal_systick.h     #   1ms 时基
+│   ├── hc_hal_delay.h       #   微秒/毫秒延时
+│   ├── hc_hal_dwt.h         #   DWT 周期计数器
+│   ├── hc_hal_timer.h       #   通用定时器
+│   ├── hc_hal_wdg.h         #   独立看门狗
+│   └── platform/{stm32,mspm0}/  #   平台 .c 实现与 cfg
 │
-├── hc_driver/               # 设备驱动层（外设芯片驱动）
-│   └── ...                  #   OLED / Key / Sensor 等外设驱动
+├── hc_driver/               # 设备驱动层（外设芯片驱动，禁止反向依赖上层）
+│   └── hc_driver_encoder.h/.c  #   编码器累计计数与四倍频解码
 │
 ├── hc_middleware/            # 通用中间件（协议栈、算法库、文件系统适配）
 │   └── ...
@@ -41,7 +51,7 @@ framework/
 ├── hc_app/                   # 应用入口与场景逻辑
 │   └── ...
 │
-├── port/                    # [旧] HC_Sys_Menu 硬件适配层 —— 待迁移
+├── port/                    # [旧→兼容] 原 HC_Sys_Menu 硬件适配层，现已转发至 hc_hal
 ├── runtime/                 # [旧] HC_Sys_Menu 双后端运行时 —— 待迁移
 ├── service/                 # [旧] HC_Sys_Menu 常驻服务层 —— 待迁移
 ├── scheduler/               # [旧] HC_Sys_Menu 调度层 —— 待迁移
@@ -93,15 +103,17 @@ hc_task          可以依赖 hc_service / hc_middleware / hc_cfg / hc_common
 
 | 旧目录 | 目标目录 | 状态 |
 |--------|---------|------|
-| `port/` | `hc_hal/` + `hc_driver/` | 待迁移 |
+| `port/` | `hc_hal/` + `hc_driver/` | **已迁移**（公共头 + 平台实现 + encoder 已移至 canonical 目录，旧 port 仅保留兼容转发） |
 | `runtime/` | `hc_task/` | 待迁移 |
 | `service/` | `hc_service/` | 待迁移 |
 | `app/` | `hc_app/` | 待迁移 |
 | `ui/` | `hc_app/` + `hc_middleware/` | 待迁移 |
 | `scheduler/` | `hc_task/` | 待迁移 |
 | `system/` | `hc_cfg/` | 待迁移 |
-| `hc_common/` | — | **已建立骨架** |
-| `hc_cfg/` | — | **已建立骨架** |
+| `hc_common/` | — | **已建立** |
+| `hc_cfg/` | — | **已建立**（含 target/board/module 三级配置） |
+| `hc_hal/` | — | **已建立**（14 个公共头 + stm32/mspm0 双平台实现） |
+| `hc_driver/` | — | **已建立**（encoder 编码器驱动） |
 
 ### 1.5 目标平台覆盖
 
@@ -179,8 +191,8 @@ hc_task          可以依赖 hc_service / hc_middleware / hc_cfg / hc_common
 
 ```text
 Project:  HC_EMBED_RULES
-Version:  v0.1.0-beta
-Status:   文档与规则固化阶段，待迁移实施
+Version:  v0.2.0-beta
+Status:   hc_hal + hc_driver 已迁移，剩余旧目录待迁移
 Targets:  MSPM0 / STM32 F1 / STM32 F4 / STM32 H7 / ESP32
 Compiler: C99 / C11, ARM GCC / Xtensa GCC / RISC-V GCC
 ```
