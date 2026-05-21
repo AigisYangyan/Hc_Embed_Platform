@@ -1,0 +1,30 @@
+{
+  "idf.flashType": "UART",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.espIdfPathWin": "C:\\esp32\\idf\\v6.0.1\\esp-idf",
+  "idf.toolsPathWin": "C:\\esp32\\tools",
+  "idf.pythonBinPathWin": "C:\\esp32\\tools\\python_env\\idf6.0_py3.11_env\\Scripts\\python.exe",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3",
+    "ESP_IDF_VERSION": "6.0.1",
+    "IDF_PATH": "C:\\esp32\\idf\\v6.0.1\\esp-idf",
+    "IDF_TOOLS_PATH": "C:\\esp32\\tools",
+    "IDF_PYTHON_ENV_PATH": "C:\\esp32\\tools\\python_env\\idf6.0_py3.11_env"
+  },
+  "terminal.integrated.env.windows": {
+    "IDF_PATH": "C:\\esp32\\idf\\v6.0.1\\esp-idf",
+    "IDF_TOOLS_PATH": "C:\\esp32\\tools",
+    "IDF_PYTHON_ENV_PATH": "C:\\esp32\\tools\\python_env\\idf6.0_py3.11_env",
+    "ESP_IDF_VERSION": "6.0.1",
+    "PATH": "C:\\esp32\\tools\\tools\\xtensa-esp-elf\\esp-15.2.0_20251204\\xtensa-esp-elf\\bin;${env:PATH}"
+  },
+  "clangd.path": "c:\\esp32\\tools\\tools\\esp-clang\\esp-20.1.1_20250829\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Users\\Administrator\\Desktop\\10_Current_Projects\\06_ESP32-S3\\ESP32-S3-DEMO\\espidf_softAP_official\\build"
+  ],
+  "idf.portWin": "COM22"
+}
