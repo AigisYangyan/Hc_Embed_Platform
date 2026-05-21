@@ -1,25 +1,32 @@
 {
-  "project_summary": "当前需求是将 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator 优化为严格的 JSON 施工单输出器，只围绕 Ai_tools/agent/codex_plan.json 的既有 schema 生成 1 到 3 个可执行小任务，不输出解释性文本，不修改任何业务代码。",
+  "project_summary": "当前需求是将已经验证可运行的 `port/hc_hal` 纯化为符合 HC_EMBED_RULES 的 canonical `hc_hal`，并通过受控 JSON 施工单把实现拆成 3 个可独立执行的小任务，交给 Claude 分步落地。",
   "tasks": [
     {
       "id": "T001",
-      "title": "将 SKILL.md 重写为严格 JSON-only 的施工单生成规则",
-      "goal": "把 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md 改成一个只产出合法 codex_plan.json 内容的指令文件，禁止解释性文本、Markdown 代码块、附加总结或非 schema 字段。",
+      "title": "建立 canonical hc_hal 公共接口与统一配置入口",
+      "goal": "在顶层创建 canonical `hc_hal/` 公共接口，统一切换到 `hc_common/` 与 `hc_cfg/` 作为唯一基础依赖，并把公开 ID 从项目语义改为中性能力语义；旧 `port/hc_hal/inc` 仅保留一轮兼容映射，不承载新逻辑。",
       "allowed_files": [
-        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md"
+        "hc_common/hc_types.h",
+        "hc_common/hc_err.h",
+        "hc_common/hc_def.h",
+        "hc_cfg/hc_target_cfg.h",
+        "hc_cfg/hc_board_cfg.h",
+        "hc_cfg/hc_module_cfg.h",
+        "hc_hal/",
+        "port/hc_hal/inc/"
       ],
       "forbidden_files": [
-        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml",
-        "C:\\Users\\Administrator\\.codex\\AGENTS.md",
-        "Ai_tools/agent/codex_plan.schema.json",
-        "Ai_tools/agent/codex_plan.example.json",
-        "Ai_tools/tools/validate_codex_plan.ps1",
-        "Ai_tools/prompts/CODEX_generate_json.md",
+        "Ai_tools/agent/codex_plan.json",
+        "Ai_tools/prompts/",
+        "README.md",
         "app/",
         "examples/",
-        "hc_cfg/",
-        "hc_common/",
-        "port/",
+        "port/hc_common.h",
+        "port/hc_hal/platform/",
+        "port/port_key.h",
+        "port/port_oled.h",
+        "port/port_systick.h",
+        "port/port_uart_vofa.h",
         "runtime/",
         "scheduler/",
         "service/",
@@ -27,44 +34,48 @@
         "ui/"
       ],
       "steps": [
-        "读取 schema、example、当前 codex_plan.json 与现有 SKILL.md。",
-        "把输出契约改成 strict raw JSON only。",
-        "要求先读取 Ai_tools/agent/codex_plan.schema.json、Ai_tools/agent/codex_plan.example.json、当前 Ai_tools/agent/codex_plan.json。",
-        "明确默认只生成 1 到 3 个任务、只保留既有字段、禁止业务代码修改。",
-        "把 strict raw JSON only、no Markdown fences 两个英文锚点写进规则，供检查命令验证。"
+        "读取现有 `port/hc_hal/inc/*.h`，按最小接口稳定面在顶层创建 canonical `hc_hal/*.h`，文件名沿用现有模块名，如 `hc_hal_gpio.h`、`hc_hal_uart.h`、`hc_hal_pwm.h`、`hc_hal_dma.h`、`hc_hal_i2c.h`、`hc_hal_systick.h`、`hc_hal_delay.h`。",
+        "将 canonical 公共头的 include 收口为 `hc_common/`、`hc_cfg/` 和 `hc_hal/` 自身头文件；禁止继续在 canonical 公共头中 include `port/hc_common.h`、`usart.h`、`ti_msp_dl_config.h`、`driverlib` 或任何厂商 SDK 头。",
+        "在 `hc_common/` 中补齐 canonical HAL 需要的基础类型、空指针/空函数、inline/weak/断言包装和统一错误码别名，保证 canonical `hc_hal` 不再依赖旧 `port/hc_common.h`。",
+        "扩展 `hc_cfg/hc_target_cfg.h`，至少显式支持当前已存在的 `STM32F1` 与 `MSPM0` 目标选择；将 `hc_cfg/hc_board_cfg.h` 固化为唯一板级资源入口，板级别名只放这里，不再让 canonical 公共头暴露 VOFA、VISION、灰度、左右电机、按键 K1/K2 等项目语义名。",
+        "将 canonical 公共头中的公开 ID 改为中性名称：GPIO 使用通用 pin/channel 标识，UART 使用通用 channel 标识，PWM/DMA 同理；项目语义别名只允许留在 `port/hc_hal/inc` 兼容头中，且兼容头只做 typedef、宏映射或薄包装，不新增行为。"
       ],
-      "check_command": "powershell -NoProfile -Command \"$p='C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md'; if (!(Test-Path $p)) { throw 'missing SKILL.md' }; $c=Get-Content $p -Raw; @('strict raw JSON only','no Markdown fences','Ai_tools/agent/codex_plan.schema.json','Ai_tools/agent/codex_plan.example.json','Ai_tools/agent/codex_plan.json') | ForEach-Object { if ($c -notlike \\\"*$_*\\\") { throw \\\"missing: $_\\\" } }; Write-Host 'SKILL.md checks passed'\"",
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_hal/hc_hal_gpio.h','hc_hal/hc_hal_uart.h','hc_hal/hc_hal_pwm.h','hc_hal/hc_hal_dma.h') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n -F 'hc_common.h' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'canonical public headers still depend on port/hc_common.h' }; rg -n 'usart.h|ti_msp_dl_config.h|driverlib|<ti/' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'vendor headers leaked into canonical public headers' }; rg -n 'VPIN_|UART_CH_|STEPMOTOR|VOFA|VISION|GRAY_|COUNT_|MOTOR_L|MOTOR_R' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'project-specific names leaked into canonical public headers' }; Write-Host 'T001 checks passed'\"",
       "acceptance_criteria": [
-        "SKILL.md 明确要求最终回复只能是原始 JSON。",
-        "SKILL.md 明确禁止 Markdown 代码块、前后说明、任务数量统计。",
-        "SKILL.md 明确要求只生成 schema 允许的字段。",
-        "没有修改 allowed_files 之外的任何文件。"
+        "顶层 `hc_hal/` 已存在 canonical 公共头，且这些头文件不再 include `port/hc_common.h` 或任何厂商 SDK 头。",
+        "canonical 公共头中的公开枚举、typedef、宏名称不再直接暴露 `VPIN_*`、`UART_CH_VOFA`、`STEPMOTOR`、`VISION`、`GRAY_*`、`MOTOR_*` 等项目语义。",
+        "`hc_cfg/hc_target_cfg.h` 已能显式区分 `STM32F1` 与 `MSPM0` 目标，`hc_cfg/hc_board_cfg.h` 成为 canonical 板级资源入口。",
+        "`port/hc_hal/inc` 仅保留兼容映射，未新增平台逻辑或业务逻辑。"
       ],
       "stop_conditions": [
-        "如果需要修改 schema/example/validator/prompt 才能实现，立即停止。",
-        "如果需要修改 .codex 下除 SKILL.md 外的其他文件，立即停止。",
-        "如果需要触碰 app/、service/、ui/、runtime/ 等业务目录，立即停止。"
+        "如果实现 canonical 公共接口必须先改 `app/`、`service/`、`ui/`、`runtime/`、`scheduler/`、`system/` 中的业务代码，立即停止。",
+        "如果需要修改 `port/hc_common.h` 才能继续，立即停止。",
+        "如果必须把厂商 SDK 头暴露到 canonical `hc_hal` 公共头，立即停止。"
       ]
     },
     {
       "id": "T002",
-      "title": "同步 openai.yaml 元数据以强制 JSON-only 调用入口",
-      "goal": "更新 C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml，让展示名、简介和默认提示都收敛到严格 JSON 输出器定位。",
+      "title": "迁移平台实现并将编码器语义下沉到最小 hc_driver",
+      "goal": "把平台相关实现迁移到 canonical `hc_hal/platform/<target>/`，同时将编码器累计计数与四倍频解码从 canonical GPIO HAL 中移出，下沉为最小可用 `hc_driver` 模块；canonical GPIO HAL 仅保留通用输入、输出与中断分发职责。",
       "allowed_files": [
-        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml"
+        "hc_cfg/hc_board_cfg.h",
+        "hc_cfg/hc_target_cfg.h",
+        "hc_driver/",
+        "hc_hal/",
+        "port/hc_hal/platform/"
       ],
       "forbidden_files": [
-        "C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\SKILL.md",
-        "C:\\Users\\Administrator\\.codex\\AGENTS.md",
-        "Ai_tools/agent/codex_plan.schema.json",
-        "Ai_tools/agent/codex_plan.example.json",
-        "Ai_tools/tools/validate_codex_plan.ps1",
-        "Ai_tools/prompts/CODEX_generate_json.md",
+        "Ai_tools/agent/codex_plan.json",
+        "Ai_tools/prompts/",
+        "README.md",
         "app/",
         "examples/",
-        "hc_cfg/",
-        "hc_common/",
-        "port/",
+        "port/hc_common.h",
+        "port/hc_hal/inc/",
+        "port/port_key.h",
+        "port/port_oled.h",
+        "port/port_systick.h",
+        "port/port_uart_vofa.h",
         "runtime/",
         "scheduler/",
         "service/",
@@ -72,22 +83,72 @@
         "ui/"
       ],
       "steps": [
-        "读取更新后的 SKILL.md 与当前 openai.yaml。",
-        "把 short_description 改为强调 strict raw JSON only。",
-        "把 default_prompt 改为先读取 schema/example/current plan，再只输出合法 JSON，且只创建或更新 Ai_tools/agent/codex_plan.json。",
-        "保持 YAML 结构最小，只保留现有 interface 键位。"
+        "在 canonical `hc_hal/platform/stm32/` 与 `hc_hal/platform/mspm0/` 下安置实现与 cfg，保持现有可运行行为不变；如果旧构建链暂时仍指向 `port/hc_hal/platform/`，则旧路径只允许保留冻结副本或做极薄的转发，不允许继续承载新的 canonical 逻辑演化。",
+        "把平台 cfg 中与 UART、GPIO、PWM、DMA 相关的表项从项目语义 ID 改为中性 ID，并通过 `hc_cfg/hc_board_cfg.h` 承接板级别名映射。",
+        "从 canonical `hc_hal_gpio` 中删除编码器累计计数与四倍频解码公开职责，新增最小 `hc_driver` 模块承接这部分能力，例如 `hc_driver_encoder.h/.c`；GPIO HAL 仅负责读写、初始化、中断注册/分发，不再公开 `GetEncoderCounts` 这类设备语义接口。",
+        "把灰度传感器、VOFA、步进电机、左右电机、编码器等命名限制在 `hc_cfg/`、`hc_driver/` 或 legacy 兼容层中，确保 canonical `hc_hal` 仍然只是 MCU 薄封装。",
+        "如果旧 `port/hc_hal/platform/` 需要保留编译兼容，只允许通过包含 canonical 实现、转发调用或静态映射方式保持行为一致，不允许在旧路径继续发展出第二套逻辑。"
       ],
-      "check_command": "powershell -NoProfile -Command \"$p='C:\\Users\\Administrator\\.codex\\skills\\hc-codex-plan-generator\\agents\\openai.yaml'; if (!(Test-Path $p)) { throw 'missing openai.yaml' }; $c=Get-Content $p -Raw; @('strict raw JSON only','only create or update Ai_tools/agent/codex_plan.json','Ai_tools/agent/codex_plan.schema.json','Ai_tools/agent/codex_plan.example.json') | ForEach-Object { if ($c -notlike \\\"*$_*\\\") { throw \\\"missing: $_\\\" } }; Write-Host 'openai.yaml checks passed'\"",
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_driver/hc_driver_encoder.h','hc_driver/hc_driver_encoder.c') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n -F 'HC_HAL_GPIO_GetEncoderCounts' hc_hal | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'encoder API still exposed from canonical hc_hal' }; rg -n 'VPIN_|UART_CH_|STEPMOTOR|VOFA|VISION|GRAY_|COUNT_|MOTOR_L|MOTOR_R' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'project-specific names still leak from canonical public headers' }; rg -n -F '#include \\\"hc_driver/' hc_hal | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'canonical hc_hal must not depend on hc_driver' }; Write-Host 'T002 checks passed'\"",
       "acceptance_criteria": [
-        "openai.yaml 的 short_description 和 default_prompt 都体现 JSON-only 契约。",
-        "默认提示要求先读 schema/example/current plan。",
-        "没有新增额外 YAML 顶层字段。",
-        "没有修改 allowed_files 之外的任何文件。"
+        "canonical `hc_hal/platform/stm32/` 与 `hc_hal/platform/mspm0/` 已承载平台实现，旧 `port/hc_hal/platform/` 没有继续新增独立逻辑。",
+        "canonical `hc_hal_gpio` 不再公开编码器累计计数接口，编码器相关行为已下沉到最小 `hc_driver` 模块。",
+        "canonical `hc_hal` 仍不反向依赖 `hc_driver`，设备语义名未重新泄漏回 canonical 公共头。",
+        "平台 cfg 已使用中性 ID，并通过 `hc_cfg/hc_board_cfg.h` 对接板级别名。"
       ],
       "stop_conditions": [
-        "如果需要改 .codex\\AGENTS.md、config.toml 或任何 repo prompt 才能生效，立即停止。",
-        "如果需要新增第二个 skill 才能实现，立即停止。",
-        "如果需要修改业务目录或 repo 校验脚本，立即停止。"
+        "如果迁移平台实现必须修改厂商自动生成的 BSP/HAL 文件本体，立即停止。",
+        "如果必须修改 `app/`、`service/`、`ui/` 等业务调用方才能先完成该任务，立即停止。",
+        "如果无法在不让 canonical `hc_hal` 反向依赖 `hc_driver` 的前提下搬走编码器逻辑，立即停止。"
+      ]
+    },
+    {
+      "id": "T003",
+      "title": "补齐 legacy 兼容入口并新增 canonical hc_hal 边界检查",
+      "goal": "为仍在使用旧入口的代码保留最小兼容面，同时把 canonical `hc_hal` 公共头的边界检查固化到仓库脚本中；允许现有 `app/demo_blink.c -> port_oled.h` 这一条遗留违例继续存在，但不允许引入新的 `hc_hal` 边界违例。",
+      "allowed_files": [
+        "Ai_tools/tools/check_hc_embed_arch.py",
+        "port/port_key.h",
+        "port/port_systick.h",
+        "port/port_uart_vofa.h",
+        "port/hc_hal/inc/"
+      ],
+      "forbidden_files": [
+        "Ai_tools/agent/codex_plan.json",
+        "Ai_tools/prompts/",
+        "README.md",
+        "app/",
+        "examples/",
+        "hc_common/",
+        "hc_cfg/",
+        "hc_driver/",
+        "hc_hal/",
+        "port/hc_common.h",
+        "port/hc_hal/platform/",
+        "port/port_oled.h",
+        "runtime/",
+        "scheduler/",
+        "service/",
+        "system/",
+        "ui/"
+      ],
+      "steps": [
+        "把 `port/port_key.h`、`port/port_systick.h`、`port/port_uart_vofa.h` 收口为最小兼容头：旧调用方仍可 include 这些头，但头内部只转发到 canonical `hc_hal` 或 legacy 兼容别名，不新增设备逻辑。",
+        "在 `Ai_tools/tools/check_hc_embed_arch.py` 中新增针对 canonical `hc_hal` 公共头的边界检查规则，至少覆盖两类问题：禁止 include `port/hc_common.h` 或厂商 SDK 头；禁止在 canonical 公共头继续暴露 `VPIN_*`、`UART_CH_*`、`VOFA`、`STEPMOTOR`、`VISION`、`GRAY_*`、`MOTOR_*` 等项目语义名。",
+        "保持现有已知 legacy 违例不扩散：`app/demo_blink.c` 继续直接 include `port_oled.h` 不属于本 task 修复范围，但检查脚本或验收命令必须能明确区分这条已知存量问题与本次新增问题。",
+        "不要修改 `port/port_oled.h`、`app/demo_blink.c` 或其他旧层业务文件，只收紧兼容入口和静态检查边界。"
+      ],
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('port/port_key.h','port/port_systick.h','port/port_uart_vofa.h','Ai_tools/tools/check_hc_embed_arch.py') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n 'hc_hal/' port/port_key.h port/port_systick.h port/port_uart_vofa.h | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'legacy compatibility headers do not forward to canonical hc_hal' }; $out = python Ai_tools/tools/check_hc_embed_arch.py 2>&1; $text = ($out | Out-String); if ($LASTEXITCODE -ne 0) { if (($text -notmatch '架构违例: 1 处') -or ($text -notmatch 'app\\\\demo_blink\\\\demo_blink.c') -or ($text -notmatch 'port_oled.h')) { throw $text } }; Write-Host 'T003 checks passed'\"",
+      "acceptance_criteria": [
+        "`port/port_key.h`、`port/port_systick.h`、`port/port_uart_vofa.h` 已成为最小兼容入口，并指向 canonical `hc_hal`。",
+        "`Ai_tools/tools/check_hc_embed_arch.py` 已能检查 canonical `hc_hal` 公共头的 include 边界与命名泄漏问题。",
+        "运行检查后，不得出现新的 canonical `hc_hal` 边界违例；如果脚本仍报错，唯一允许的存量错误是 `app/demo_blink.c` 直接 include `port_oled.h` 这一条。",
+        "未修改 `port/port_oled.h`、`app/`、`service/`、`ui/` 等旧业务层文件。"
+      ],
+      "stop_conditions": [
+        "如果兼容入口收口必须修改 `port/port_oled.h` 或 `app/demo_blink.c`，立即停止。",
+        "如果静态检查无法只隔离出 canonical `hc_hal` 新边界问题与已知 legacy 违例，立即停止。",
+        "如果需要扩展到 `runtime/`、`scheduler/`、`service/`、`ui/` 的调用逻辑才能通过本 task，立即停止。"
       ]
     }
   ]
