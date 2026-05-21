@@ -1,68 +1,61 @@
 {
-  "project_summary": "当前需求是将已经验证可运行的 `port/hc_hal` 纯化为符合 HC_EMBED_RULES 的 canonical `hc_hal`，并通过受控 JSON 施工单把实现拆成 3 个可独立执行的小任务，交给 Claude 分步落地。",
+  "project_summary": "当前需求是删除旧版 `port/` 兼容层，并通过受控 JSON 施工单把执行顺序限定为“先迁移旧入口引用，再删除 legacy port 目录，最后补齐防回退检查”三个小任务，确保 HC_EMBED_RULES 下只保留 canonical `hc_hal/` 与 `hc_driver/`。",
   "tasks": [
     {
       "id": "T001",
-      "title": "建立 canonical hc_hal 公共接口与统一配置入口",
-      "goal": "在顶层创建 canonical `hc_hal/` 公共接口，统一切换到 `hc_common/` 与 `hc_cfg/` 作为唯一基础依赖，并把公开 ID 从项目语义改为中性能力语义；旧 `port/hc_hal/inc` 仅保留一轮兼容映射，不承载新逻辑。",
+      "title": "迁移遗留调用方到 canonical hc_common 与 hc_driver 接口",
+      "goal": "把仍然直接依赖 `port_key.h`、`port_oled.h` 和旧 `hc_common.h` 的遗留调用方切换到 canonical `hc_common/` 与最小 `hc_driver/` 接口，为彻底删除 `port/` 做前置清理，同时保持现有菜单与初始化行为不变。",
       "allowed_files": [
-        "hc_common/hc_types.h",
-        "hc_common/hc_err.h",
-        "hc_common/hc_def.h",
-        "hc_cfg/hc_target_cfg.h",
-        "hc_cfg/hc_board_cfg.h",
-        "hc_cfg/hc_module_cfg.h",
-        "hc_hal/",
-        "port/hc_hal/inc/"
+        "app/app_registry.h",
+        "app/demo_blink/demo_blink.c",
+        "hc_common/",
+        "hc_driver/",
+        "hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
+        "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
+        "scheduler/task_scheduler.h",
+        "service/telemetry_service.h",
+        "service/ui_service.c",
+        "system/sys_init.c",
+        "ui/menu_core.c",
+        "ui/menu_core.h",
+        "ui/menu_pages.c",
+        "ui/ui_event.h"
       ],
       "forbidden_files": [
         "Ai_tools/agent/codex_plan.json",
         "Ai_tools/prompts/",
         "README.md",
-        "app/",
         "examples/",
-        "port/hc_common.h",
-        "port/hc_hal/platform/",
-        "port/port_key.h",
-        "port/port_oled.h",
-        "port/port_systick.h",
-        "port/port_uart_vofa.h",
+        "hc_hal/platform/mspm0/src/",
+        "hc_hal/platform/stm32/src/",
+        "port/",
         "runtime/",
-        "scheduler/",
-        "service/",
-        "system/",
-        "ui/"
+        "service/ui_service.h"
       ],
       "steps": [
-        "读取现有 `port/hc_hal/inc/*.h`，按最小接口稳定面在顶层创建 canonical `hc_hal/*.h`，文件名沿用现有模块名，如 `hc_hal_gpio.h`、`hc_hal_uart.h`、`hc_hal_pwm.h`、`hc_hal_dma.h`、`hc_hal_i2c.h`、`hc_hal_systick.h`、`hc_hal_delay.h`。",
-        "将 canonical 公共头的 include 收口为 `hc_common/`、`hc_cfg/` 和 `hc_hal/` 自身头文件；禁止继续在 canonical 公共头中 include `port/hc_common.h`、`usart.h`、`ti_msp_dl_config.h`、`driverlib` 或任何厂商 SDK 头。",
-        "在 `hc_common/` 中补齐 canonical HAL 需要的基础类型、空指针/空函数、inline/weak/断言包装和统一错误码别名，保证 canonical `hc_hal` 不再依赖旧 `port/hc_common.h`。",
-        "扩展 `hc_cfg/hc_target_cfg.h`，至少显式支持当前已存在的 `STM32F1` 与 `MSPM0` 目标选择；将 `hc_cfg/hc_board_cfg.h` 固化为唯一板级资源入口，板级别名只放这里，不再让 canonical 公共头暴露 VOFA、VISION、灰度、左右电机、按键 K1/K2 等项目语义名。",
-        "将 canonical 公共头中的公开 ID 改为中性名称：GPIO 使用通用 pin/channel 标识，UART 使用通用 channel 标识，PWM/DMA 同理；项目语义别名只允许留在 `port/hc_hal/inc` 兼容头中，且兼容头只做 typedef、宏映射或薄包装，不新增行为。"
+        "先回答三个边界问题并固化最小稳定接口：按键与 OLED 属于设备级能力，应下沉到 `hc_driver/`；芯片寄存器与 GPIO/I2C/UART 细节继续隐藏在 `hc_hal/`；公共基础类型与宏从旧 `hc_common.h` 迁移到 canonical `hc_common/`（可以是新的聚合头，也可以是精确拆分 include）。",
+        "在 `hc_driver/` 中建立替代旧 `port_key.h` 与 `port_oled.h` 的最小接口，并把 `service/ui_service.c`、`system/sys_init.c`、`ui/menu_core.c`、`ui/menu_pages.c`、`ui/ui_event.h`、`app/demo_blink/demo_blink.c` 等遗留调用方切换到新接口，不得顺手改菜单逻辑、渲染逻辑或键值语义。",
+        "把 `app/app_registry.h`、`service/telemetry_service.h`、`scheduler/task_scheduler.h`、`ui/menu_core.h`、`ui/ui_event.h` 以及 `hc_hal/platform/*/cfg/hc_hal_board_cfg.h` 中的旧 `#include \"hc_common.h\"` 收口为 canonical `hc_common/` 头文件，不允许继续依赖即将删除的 `port/hc_common.h`。"
       ],
-      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_hal/hc_hal_gpio.h','hc_hal/hc_hal_uart.h','hc_hal/hc_hal_pwm.h','hc_hal/hc_hal_dma.h') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n -F 'hc_common.h' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'canonical public headers still depend on port/hc_common.h' }; rg -n 'usart.h|ti_msp_dl_config.h|driverlib|<ti/' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'vendor headers leaked into canonical public headers' }; rg -n 'VPIN_|UART_CH_|STEPMOTOR|VOFA|VISION|GRAY_|COUNT_|MOTOR_L|MOTOR_R' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'project-specific names leaked into canonical public headers' }; Write-Host 'T001 checks passed'\"",
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_driver/hc_driver_key.h','hc_driver/hc_driver_oled.h') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n '#include\\s+[\\\"<](port_key|port_oled)\\.h[\\\">]' app service system ui scheduler | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy port_key.h or port_oled.h include still present' }; rg -n '#include\\s+[\\\"<]hc_common\\.h[\\\">]' app service system ui scheduler hc_hal/platform | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy hc_common.h include still present' }; Write-Host 'T001 checks passed'\"",
       "acceptance_criteria": [
-        "顶层 `hc_hal/` 已存在 canonical 公共头，且这些头文件不再 include `port/hc_common.h` 或任何厂商 SDK 头。",
-        "canonical 公共头中的公开枚举、typedef、宏名称不再直接暴露 `VPIN_*`、`UART_CH_VOFA`、`STEPMOTOR`、`VISION`、`GRAY_*`、`MOTOR_*` 等项目语义。",
-        "`hc_cfg/hc_target_cfg.h` 已能显式区分 `STM32F1` 与 `MSPM0` 目标，`hc_cfg/hc_board_cfg.h` 成为 canonical 板级资源入口。",
-        "`port/hc_hal/inc` 仅保留兼容映射，未新增平台逻辑或业务逻辑。"
+        "`app/`、`service/`、`system/`、`ui/`、`scheduler/` 中不再直接 include `port_key.h`、`port_oled.h` 或旧 `hc_common.h`。",
+        "`hc_driver/` 中已经建立承接按键与 OLED 的最小稳定接口，且公开接口不暴露 MCU、寄存器或厂商 SDK 细节。",
+        "`hc_hal/platform/*/cfg/hc_hal_board_cfg.h` 已不再依赖旧 `hc_common.h`，删除 `port/hc_common.h` 不会留下新的头文件断链。"
       ],
       "stop_conditions": [
-        "如果实现 canonical 公共接口必须先改 `app/`、`service/`、`ui/`、`runtime/`、`scheduler/`、`system/` 中的业务代码，立即停止。",
-        "如果需要修改 `port/hc_common.h` 才能继续，立即停止。",
-        "如果必须把厂商 SDK 头暴露到 canonical `hc_hal` 公共头，立即停止。"
+        "如果删除旧入口前必须修改 `runtime/` 调度策略、菜单状态机或业务逻辑行为，立即停止。",
+        "如果新的设备级接口无法放入 `hc_driver/` 而必须把业务语义重新塞回 `hc_hal/`，立即停止。",
+        "如果发现仓库外部的构建脚本或 IDE 工程文件强依赖 `port/` include 根目录，立即停止并单独汇报。"
       ]
     },
     {
       "id": "T002",
-      "title": "迁移平台实现并将编码器语义下沉到最小 hc_driver",
-      "goal": "把平台相关实现迁移到 canonical `hc_hal/platform/<target>/`，同时将编码器累计计数与四倍频解码从 canonical GPIO HAL 中移出，下沉为最小可用 `hc_driver` 模块；canonical GPIO HAL 仅保留通用输入、输出与中断分发职责。",
+      "title": "删除旧版 port 兼容层与重复实现目录",
+      "goal": "在旧调用方完成迁移后，删除 `port/` 中的 compat headers、旧 `hc_common.h` 和重复 `port/hc_hal` 实现，保证仓库源码树只保留 canonical `hc_hal/`、`hc_driver/`、`hc_common/`。",
       "allowed_files": [
         "hc_cfg/hc_board_cfg.h",
-        "hc_cfg/hc_target_cfg.h",
-        "hc_driver/",
-        "hc_hal/",
-        "port/hc_hal/platform/"
+        "port/"
       ],
       "forbidden_files": [
         "Ai_tools/agent/codex_plan.json",
@@ -70,12 +63,9 @@
         "README.md",
         "app/",
         "examples/",
-        "port/hc_common.h",
-        "port/hc_hal/inc/",
-        "port/port_key.h",
-        "port/port_oled.h",
-        "port/port_systick.h",
-        "port/port_uart_vofa.h",
+        "hc_common/",
+        "hc_driver/",
+        "hc_hal/",
         "runtime/",
         "scheduler/",
         "service/",
@@ -83,35 +73,28 @@
         "ui/"
       ],
       "steps": [
-        "在 canonical `hc_hal/platform/stm32/` 与 `hc_hal/platform/mspm0/` 下安置实现与 cfg，保持现有可运行行为不变；如果旧构建链暂时仍指向 `port/hc_hal/platform/`，则旧路径只允许保留冻结副本或做极薄的转发，不允许继续承载新的 canonical 逻辑演化。",
-        "把平台 cfg 中与 UART、GPIO、PWM、DMA 相关的表项从项目语义 ID 改为中性 ID，并通过 `hc_cfg/hc_board_cfg.h` 承接板级别名映射。",
-        "从 canonical `hc_hal_gpio` 中删除编码器累计计数与四倍频解码公开职责，新增最小 `hc_driver` 模块承接这部分能力，例如 `hc_driver_encoder.h/.c`；GPIO HAL 仅负责读写、初始化、中断注册/分发，不再公开 `GetEncoderCounts` 这类设备语义接口。",
-        "把灰度传感器、VOFA、步进电机、左右电机、编码器等命名限制在 `hc_cfg/`、`hc_driver/` 或 legacy 兼容层中，确保 canonical `hc_hal` 仍然只是 MCU 薄封装。",
-        "如果旧 `port/hc_hal/platform/` 需要保留编译兼容，只允许通过包含 canonical 实现、转发调用或静态映射方式保持行为一致，不允许在旧路径继续发展出第二套逻辑。"
+        "先用搜索确认仓库源码里已经没有对 `port_key.h`、`port_oled.h`、`port_systick.h`、`port_uart_vofa.h`、`port/hc_hal`、旧 `hc_common.h` 的剩余依赖，再执行删除，禁止边删边补新的兼容转发。",
+        "删除 `port/hc_hal/inc/`、`port/hc_hal/platform/`、`port/hc_common.h`、`port/port_key.h`、`port/port_oled.h`、`port/port_systick.h`、`port/port_uart_vofa.h`，如果 `port/` 为空则直接移除整个目录。",
+        "同步清理 `hc_cfg/hc_board_cfg.h` 中对 legacy compat layer 的文字或约束描述，避免 canonical 配置层继续把 `port/` 当成受支持边界。"
       ],
-      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_driver/hc_driver_encoder.h','hc_driver/hc_driver_encoder.c') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n -F 'HC_HAL_GPIO_GetEncoderCounts' hc_hal | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'encoder API still exposed from canonical hc_hal' }; rg -n 'VPIN_|UART_CH_|STEPMOTOR|VOFA|VISION|GRAY_|COUNT_|MOTOR_L|MOTOR_R' hc_hal -g '*.h' -g '!platform/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'project-specific names still leak from canonical public headers' }; rg -n -F '#include \\\"hc_driver/' hc_hal | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'canonical hc_hal must not depend on hc_driver' }; Write-Host 'T002 checks passed'\"",
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; if (Test-Path 'port') { throw 'port directory still exists' }; rg -n 'port/hc_hal|port_key\\.h|port_oled\\.h|port_systick\\.h|port_uart_vofa\\.h|#include\\s+[\\\"<]hc_common\\.h[\\\">]' . --glob '!README.md' --glob '!Ai_tools/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy port compatibility references still present' }; rg -n 'legacy compat layer|port/hc_hal/inc/' hc_cfg/hc_board_cfg.h | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'hc_cfg/hc_board_cfg.h still mentions removed port compatibility layer' }; Write-Host 'T002 checks passed'\"",
       "acceptance_criteria": [
-        "canonical `hc_hal/platform/stm32/` 与 `hc_hal/platform/mspm0/` 已承载平台实现，旧 `port/hc_hal/platform/` 没有继续新增独立逻辑。",
-        "canonical `hc_hal_gpio` 不再公开编码器累计计数接口，编码器相关行为已下沉到最小 `hc_driver` 模块。",
-        "canonical `hc_hal` 仍不反向依赖 `hc_driver`，设备语义名未重新泄漏回 canonical 公共头。",
-        "平台 cfg 已使用中性 ID，并通过 `hc_cfg/hc_board_cfg.h` 对接板级别名。"
+        "`port/` 目录及其历史兼容文件已从仓库源码树删除。",
+        "除 `README.md` 和 `Ai_tools/` 之外，源码文件中不再出现对已删除 `port/` 兼容层或旧 `hc_common.h` 的引用。",
+        "`hc_cfg/hc_board_cfg.h` 不再把 `port/` 视为 canonical 架构的一部分。"
       ],
       "stop_conditions": [
-        "如果迁移平台实现必须修改厂商自动生成的 BSP/HAL 文件本体，立即停止。",
-        "如果必须修改 `app/`、`service/`、`ui/` 等业务调用方才能先完成该任务，立即停止。",
-        "如果无法在不让 canonical `hc_hal` 反向依赖 `hc_driver` 的前提下搬走编码器逻辑，立即停止。"
+        "如果任一遗留调用方仍直接依赖 `port/`，立即停止，不允许为了赶进度重新创建兼容壳。",
+        "如果删除 `port/` 必须同步改动 `README.md`、提示词或工具脚本才能继续，立即停止并把文档同步作为独立后续项提出。",
+        "如果删除后发现实际构建入口不在仓库内且必须调整外部工程配置，立即停止并单独汇报。"
       ]
     },
     {
       "id": "T003",
-      "title": "补齐 legacy 兼容入口并新增 canonical hc_hal 边界检查",
-      "goal": "为仍在使用旧入口的代码保留最小兼容面，同时把 canonical `hc_hal` 公共头的边界检查固化到仓库脚本中；允许现有 `app/demo_blink.c -> port_oled.h` 这一条遗留违例继续存在，但不允许引入新的 `hc_hal` 边界违例。",
+      "title": "补齐禁止回退到 port 兼容层的静态检查",
+      "goal": "更新仓库内的架构检查脚本，使其在 `port/` 删除后能够阻止任何人重新引入旧 `port_*` 头、旧 `hc_common.h` 或新的 legacy 白名单。",
       "allowed_files": [
-        "Ai_tools/tools/check_hc_embed_arch.py",
-        "port/port_key.h",
-        "port/port_systick.h",
-        "port/port_uart_vofa.h",
-        "port/hc_hal/inc/"
+        "Ai_tools/tools/check_hc_embed_arch.py"
       ],
       "forbidden_files": [
         "Ai_tools/agent/codex_plan.json",
@@ -123,9 +106,7 @@
         "hc_cfg/",
         "hc_driver/",
         "hc_hal/",
-        "port/hc_common.h",
-        "port/hc_hal/platform/",
-        "port/port_oled.h",
+        "port/",
         "runtime/",
         "scheduler/",
         "service/",
@@ -133,22 +114,20 @@
         "ui/"
       ],
       "steps": [
-        "把 `port/port_key.h`、`port/port_systick.h`、`port/port_uart_vofa.h` 收口为最小兼容头：旧调用方仍可 include 这些头，但头内部只转发到 canonical `hc_hal` 或 legacy 兼容别名，不新增设备逻辑。",
-        "在 `Ai_tools/tools/check_hc_embed_arch.py` 中新增针对 canonical `hc_hal` 公共头的边界检查规则，至少覆盖两类问题：禁止 include `port/hc_common.h` 或厂商 SDK 头；禁止在 canonical 公共头继续暴露 `VPIN_*`、`UART_CH_*`、`VOFA`、`STEPMOTOR`、`VISION`、`GRAY_*`、`MOTOR_*` 等项目语义名。",
-        "保持现有已知 legacy 违例不扩散：`app/demo_blink.c` 继续直接 include `port_oled.h` 不属于本 task 修复范围，但检查脚本或验收命令必须能明确区分这条已知存量问题与本次新增问题。",
-        "不要修改 `port/port_oled.h`、`app/demo_blink.c` 或其他旧层业务文件，只收紧兼容入口和静态检查边界。"
+        "移除 `check_hc_embed_arch.py` 中当前对 `app/demo_blink/demo_blink.c -> port_oled.h` 的 legacy 特许，因为旧 `port/` 已经不再允许存在。",
+        "在保留现有 canonical `hc_hal` 公共头边界检查的基础上，新增 repo 级规则：禁止重新 include `port_key.h`、`port_oled.h`、`port_systick.h`、`port_uart_vofa.h` 和旧 `hc_common.h`，也禁止重新添加新的 legacy allowlist。",
+        "让脚本以“零 legacy、零 canonical 违例”为唯一通过条件；如果发现任何 `port/` 回退依赖，必须直接失败，而不是继续降级成 warning。"
       ],
-      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('port/port_key.h','port/port_systick.h','port/port_uart_vofa.h','Ai_tools/tools/check_hc_embed_arch.py') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n 'hc_hal/' port/port_key.h port/port_systick.h port/port_uart_vofa.h | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'legacy compatibility headers do not forward to canonical hc_hal' }; $out = python Ai_tools/tools/check_hc_embed_arch.py 2>&1; $text = ($out | Out-String); if ($LASTEXITCODE -ne 0) { if (($text -notmatch '架构违例: 1 处') -or ($text -notmatch 'app\\\\demo_blink\\\\demo_blink.c') -or ($text -notmatch 'port_oled.h')) { throw $text } }; Write-Host 'T003 checks passed'\"",
+      "check_command": "python Ai_tools/tools/check_hc_embed_arch.py",
       "acceptance_criteria": [
-        "`port/port_key.h`、`port/port_systick.h`、`port/port_uart_vofa.h` 已成为最小兼容入口，并指向 canonical `hc_hal`。",
-        "`Ai_tools/tools/check_hc_embed_arch.py` 已能检查 canonical `hc_hal` 公共头的 include 边界与命名泄漏问题。",
-        "运行检查后，不得出现新的 canonical `hc_hal` 边界违例；如果脚本仍报错，唯一允许的存量错误是 `app/demo_blink.c` 直接 include `port_oled.h` 这一条。",
-        "未修改 `port/port_oled.h`、`app/`、`service/`、`ui/` 等旧业务层文件。"
+        "`Ai_tools/tools/check_hc_embed_arch.py` 不再保留 `port_oled.h` 的 legacy 豁免。",
+        "脚本能同时拦截 canonical `hc_hal` 边界违例和任何新出现的 `port/` compat 依赖。",
+        "执行脚本时，只有在仓库源码不存在 legacy `port/` 依赖且 canonical `hc_hal` 边界干净时才返回成功。"
       ],
       "stop_conditions": [
-        "如果兼容入口收口必须修改 `port/port_oled.h` 或 `app/demo_blink.c`，立即停止。",
-        "如果静态检查无法只隔离出 canonical `hc_hal` 新边界问题与已知 legacy 违例，立即停止。",
-        "如果需要扩展到 `runtime/`、`scheduler/`、`service/`、`ui/` 的调用逻辑才能通过本 task，立即停止。"
+        "如果为了让脚本通过必须重新加入新的 legacy 白名单，立即停止。",
+        "如果检查范围需要扩展到修改 README、提示词或校验器之外的工具链文件，立即停止。",
+        "如果脚本无法在不读取已删除 `port/` 文件的前提下完成检查，立即停止并先修正检查策略。"
       ]
     }
   ]
