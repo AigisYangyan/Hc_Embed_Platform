@@ -9,7 +9,9 @@ extern "C" {
 #endif
 
 typedef uint8_t   HC_U8;
+typedef int8_t    HC_S8;
 typedef uint16_t  HC_U16;
+typedef int16_t   HC_S16;
 typedef uint32_t  HC_U32;
 typedef int32_t   HC_S32;
 typedef char      HC_CHAR;

@@ -7,7 +7,7 @@
 #ifndef HC_HAL_BOARD_CFG_H
 #define HC_HAL_BOARD_CFG_H
 
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 #include "ti_msp_dl_config.h"
 
 #define HC_HAL_SYSTICK_CPU_HZ           32000000u

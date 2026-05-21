@@ -7,8 +7,7 @@
  * hc_board_cfg.h — canonical board-level resource mapping.
  *
  * All pin, instance, and clock mappings that vary between boards or targets
- * live here.  Project-specific aliases (VOFA, VISION, MOTOR_L, etc.) do NOT
- * belong here; keep those in the legacy compat layer (port/hc_hal/inc/).
+ * live here.
  */
 
 /* ── System clocks ─────────────────────────────────────────────────── */

@@ -4,7 +4,7 @@
  */
 
 #include "service/ui_service.h"
-#include "port_key.h"
+#include "hc_driver/hc_driver_key.h"
 #include "ui/menu_core.h"
 
 void UiService_Init(void)

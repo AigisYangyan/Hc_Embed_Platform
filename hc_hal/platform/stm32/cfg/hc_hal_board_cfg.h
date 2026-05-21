@@ -1,7 +1,7 @@
 #ifndef HC_HAL_BOARD_CFG_H
 #define HC_HAL_BOARD_CFG_H
 
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 
 #define HC_HAL_SYSTICK_CPU_HZ           72000000u
 #define HC_HAL_SYSTICK_TICK_HZ          1000u

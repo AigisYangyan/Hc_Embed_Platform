@@ -19,8 +19,8 @@
 #define UI_MENU_CORE_H
 
 #include <stdint.h>
-#include "hc_common.h"
-#include "port_key.h"
+#include "hc_common/hc_types.h"
+#include "hc_driver/hc_driver_key.h"
 
 #ifdef __cplusplus
 extern "C" {

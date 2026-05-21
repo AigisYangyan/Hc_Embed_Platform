@@ -6,7 +6,7 @@
 #ifndef SERVICE_TELEMETRY_SERVICE_H
 #define SERVICE_TELEMETRY_SERVICE_H
 
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 
 #ifdef __cplusplus
 extern "C" {

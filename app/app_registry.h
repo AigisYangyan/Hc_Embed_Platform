@@ -6,7 +6,7 @@
 #ifndef APP_APP_REGISTRY_H
 #define APP_APP_REGISTRY_H
 
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 #include "ui/menu_core.h"
 
 #ifdef __cplusplus

@@ -1,8 +1,6 @@
-#ifndef PORT_KEY_H
-#define PORT_KEY_H
+#ifndef HC_DRIVER_KEY_H
+#define HC_DRIVER_KEY_H
 
-/* Legacy compatibility header — forwards to canonical hc_hal for GPIO types. */
-#include "hc_hal/hc_hal_gpio.h"
 #include "hc_common/hc_types.h"
 
 #ifdef __cplusplus
@@ -25,4 +23,4 @@ HC_Bool_e Key_PollPressEvent(Key_Id_e *p_key);
 }
 #endif
 
-#endif /* PORT_KEY_H */
+#endif /* HC_DRIVER_KEY_H */

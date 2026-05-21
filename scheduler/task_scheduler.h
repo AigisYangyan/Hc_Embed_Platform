@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 #include "app/app_registry.h"
  
     /* ---- 状态机类型 --------------------------------------------------------- */

@@ -6,8 +6,8 @@
 #ifndef UI_UI_EVENT_H
 #define UI_UI_EVENT_H
 
-#include "hc_common.h"
-#include "port_key.h"
+#include "hc_common/hc_types.h"
+#include "hc_driver/hc_driver_key.h"
 
 #ifdef __cplusplus
 extern "C" {
