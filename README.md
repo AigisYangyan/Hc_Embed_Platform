@@ -1,5 +1,7 @@
 # HC_EMBED_RULES
 
+> **当前分支说明**: 本分支 `demo/esp32-s3-smart-lock` 是基于 `refactor/hc-platform-mvp` 创建的演示分支，旨在展示在 ESP32-S3 平台上实现智能锁业务的完整示例。
+
 > **架构基线声明：HC_EMBED_RULES 是本仓库唯一目标架构。**
 >
 > `port/` 的硬件抽象层已迁移至 `hc_hal/` + `hc_driver/`，旧 port 文件仅保留兼容转发。`runtime/` `service/` `app/` `ui/` `system/` `scheduler/` 仍为 HC_Sys_Menu v1.0 遗留实现，处于待迁移状态。**禁止**在上述旧目录及分层中增加新耦合、新模块或新依赖关系。所有新增代码必须遵守 HC_EMBED_RULES 分层。
