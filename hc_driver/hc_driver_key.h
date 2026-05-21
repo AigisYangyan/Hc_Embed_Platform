@@ -17,6 +17,8 @@ typedef enum {
 
 void Key_Init(void);
 void Key_Scan(void);
+HC_Bool_e Key_IsPressed(Key_Id_e key);
+HC_Bool_e Key_GetPressEvent(Key_Id_e key);
 HC_Bool_e Key_PollPressEvent(Key_Id_e *p_key);
 
 #ifdef __cplusplus
