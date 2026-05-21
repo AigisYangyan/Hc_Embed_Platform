@@ -40,7 +40,6 @@
 #ifndef __MPU6050_H__
 #define __MPU6050_H__
 
-#include "hc_common.h"
 #include "hc_hal_i2c.h"
 
 #ifdef __cplusplus

@@ -29,7 +29,6 @@
 #define __OLED_HARDWARE_I2C_H__
 
 #include <stdint.h>
-#include "hc_common.h"
 #include "hc_hal_i2c.h"
 
 #ifdef __cplusplus

@@ -34,7 +34,7 @@
 #define __EMM42_H__
 
 #include <stdint.h>
-#include "hc_common.h"
+#include "hc_common/hc_types.h"
 
 #ifdef __cplusplus
 extern "C" {
