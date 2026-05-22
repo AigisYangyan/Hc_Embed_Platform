@@ -1,11 +1,11 @@
 #include "hc_driver_mpu6050.h"
+#include "hc_cfg/hc_board_cfg.h"
 #include "hc_hal_i2c.h"
 #include "hc_hal_systick.h"
 
 #include <math.h>
 
 /* ── Private hardware binding ───────────────────────────────────────── */
-#define MPU6050_I2C_CH          I2C_CH_MPU6050
 #define MPU6050_DEV_ADDR_7BIT   0x68u
 #define MPU6050_WHO_AM_I_VAL    0x68u
 
@@ -41,7 +41,7 @@ typedef struct {
 } MPU6050_Dev_T;
 
 static MPU6050_Dev_T s_dev = {
-    .i2c_ch   = MPU6050_I2C_CH,
+    .i2c_ch   = HC_BOARD_I2C_CH_MPU6050,
     .dev_addr = MPU6050_DEV_ADDR_7BIT,
 };
 
@@ -111,7 +111,7 @@ static double kalman_get_angle(Kalman_T *k, double new_angle, double new_rate, d
 
 HC_Error_e MPU6050_Init(void)
 {
-    s_dev.i2c_ch   = MPU6050_I2C_CH;
+    s_dev.i2c_ch   = HC_BOARD_I2C_CH_MPU6050;
     s_dev.dev_addr = MPU6050_DEV_ADDR_7BIT;
 
     HC_Error_e err = HC_HAL_I2C_Init(s_dev.i2c_ch);
