@@ -24,4 +24,12 @@
 /* ── PWM ───────────────────────────────────────────────────────────── */
 #define HC_BOARD_PWM_DUTY_MAX  1000u
 
+/* ── Encoder ─────────────────────────────────────────────────────────── */
+#define HC_BOARD_ENCODER_LEFT_REVERSE             HC_FALSE
+#define HC_BOARD_ENCODER_LEFT_PPR                 11u
+#define HC_BOARD_ENCODER_LEFT_QUADRATURE_MULTIPLE 4u
+#define HC_BOARD_ENCODER_RIGHT_REVERSE            HC_FALSE
+#define HC_BOARD_ENCODER_RIGHT_PPR                11u
+#define HC_BOARD_ENCODER_RIGHT_QUADRATURE_MULTIPLE 4u
+
 #endif /* HC_BOARD_CFG_H */

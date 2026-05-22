@@ -36,4 +36,10 @@
 #define HC_HAL_PWM_MOTOR_R_CC_INDEX     GPIO_PWM_MOTOR_R_C0_IDX
 #define HC_HAL_PWM_MOTOR_R_PERIOD       HC_HAL_PWM_DUTY_MAX
 
+/* Encoder: LEFT/RIGHT A/B input VPIN mapping for software quadrature decode. */
+#define HC_HAL_ENCODER_LEFT_PIN_A       VPIN_COUNT_L1
+#define HC_HAL_ENCODER_LEFT_PIN_B       VPIN_COUNT_L2
+#define HC_HAL_ENCODER_RIGHT_PIN_A      VPIN_COUNT_R1
+#define HC_HAL_ENCODER_RIGHT_PIN_B      VPIN_COUNT_R2
+
 #endif /* HC_HAL_BOARD_CFG_H */

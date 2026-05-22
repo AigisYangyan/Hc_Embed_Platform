@@ -1,134 +1,235 @@
 {
-  "project_summary": "当前需求是删除旧版 `port/` 兼容层，并通过受控 JSON 施工单把执行顺序限定为“先迁移旧入口引用，再删除 legacy port 目录，最后补齐防回退检查”三个小任务，确保 HC_EMBED_RULES 下只保留 canonical `hc_hal/` 与 `hc_driver/`。",
-  "tasks": [
-    {
-      "id": "T001",
-      "title": "迁移遗留调用方到 canonical hc_common 与 hc_driver 接口",
-      "goal": "把仍然直接依赖 `port_key.h`、`port_oled.h` 和旧 `hc_common.h` 的遗留调用方切换到 canonical `hc_common/` 与最小 `hc_driver/` 接口，为彻底删除 `port/` 做前置清理，同时保持现有菜单与初始化行为不变。",
-      "allowed_files": [
-        "app/app_registry.h",
-        "app/demo_blink/demo_blink.c",
-        "hc_common/",
-        "hc_driver/",
-        "hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
-        "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
-        "scheduler/task_scheduler.h",
-        "service/telemetry_service.h",
-        "service/ui_service.c",
-        "system/sys_init.c",
-        "ui/menu_core.c",
-        "ui/menu_core.h",
-        "ui/menu_pages.c",
-        "ui/ui_event.h"
-      ],
-      "forbidden_files": [
-        "Ai_tools/agent/codex_plan.json",
-        "Ai_tools/prompts/",
-        "README.md",
-        "examples/",
-        "hc_hal/platform/mspm0/src/",
-        "hc_hal/platform/stm32/src/",
-        "port/",
-        "runtime/",
-        "service/ui_service.h"
-      ],
-      "steps": [
-        "先回答三个边界问题并固化最小稳定接口：按键与 OLED 属于设备级能力，应下沉到 `hc_driver/`；芯片寄存器与 GPIO/I2C/UART 细节继续隐藏在 `hc_hal/`；公共基础类型与宏从旧 `hc_common.h` 迁移到 canonical `hc_common/`（可以是新的聚合头，也可以是精确拆分 include）。",
-        "在 `hc_driver/` 中建立替代旧 `port_key.h` 与 `port_oled.h` 的最小接口，并把 `service/ui_service.c`、`system/sys_init.c`、`ui/menu_core.c`、`ui/menu_pages.c`、`ui/ui_event.h`、`app/demo_blink/demo_blink.c` 等遗留调用方切换到新接口，不得顺手改菜单逻辑、渲染逻辑或键值语义。",
-        "把 `app/app_registry.h`、`service/telemetry_service.h`、`scheduler/task_scheduler.h`、`ui/menu_core.h`、`ui/ui_event.h` 以及 `hc_hal/platform/*/cfg/hc_hal_board_cfg.h` 中的旧 `#include \"hc_common.h\"` 收口为 canonical `hc_common/` 头文件，不允许继续依赖即将删除的 `port/hc_common.h`。"
-      ],
-      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; @('hc_driver/hc_driver_key.h','hc_driver/hc_driver_oled.h') | ForEach-Object { if (!(Test-Path $_)) { throw \\\"missing $_\\\" } }; rg -n '#include\\s+[\\\"<](port_key|port_oled)\\.h[\\\">]' app service system ui scheduler | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy port_key.h or port_oled.h include still present' }; rg -n '#include\\s+[\\\"<]hc_common\\.h[\\\">]' app service system ui scheduler hc_hal/platform | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy hc_common.h include still present' }; Write-Host 'T001 checks passed'\"",
-      "acceptance_criteria": [
-        "`app/`、`service/`、`system/`、`ui/`、`scheduler/` 中不再直接 include `port_key.h`、`port_oled.h` 或旧 `hc_common.h`。",
-        "`hc_driver/` 中已经建立承接按键与 OLED 的最小稳定接口，且公开接口不暴露 MCU、寄存器或厂商 SDK 细节。",
-        "`hc_hal/platform/*/cfg/hc_hal_board_cfg.h` 已不再依赖旧 `hc_common.h`，删除 `port/hc_common.h` 不会留下新的头文件断链。"
-      ],
-      "stop_conditions": [
-        "如果删除旧入口前必须修改 `runtime/` 调度策略、菜单状态机或业务逻辑行为，立即停止。",
-        "如果新的设备级接口无法放入 `hc_driver/` 而必须把业务语义重新塞回 `hc_hal/`，立即停止。",
-        "如果发现仓库外部的构建脚本或 IDE 工程文件强依赖 `port/` include 根目录，立即停止并单独汇报。"
-      ]
-    },
-    {
-      "id": "T002",
-      "title": "删除旧版 port 兼容层与重复实现目录",
-      "goal": "在旧调用方完成迁移后，删除 `port/` 中的 compat headers、旧 `hc_common.h` 和重复 `port/hc_hal` 实现，保证仓库源码树只保留 canonical `hc_hal/`、`hc_driver/`、`hc_common/`。",
-      "allowed_files": [
-        "hc_cfg/hc_board_cfg.h",
-        "port/"
-      ],
-      "forbidden_files": [
-        "Ai_tools/agent/codex_plan.json",
-        "Ai_tools/prompts/",
-        "README.md",
-        "app/",
-        "examples/",
-        "hc_common/",
-        "hc_driver/",
-        "hc_hal/",
-        "runtime/",
-        "scheduler/",
-        "service/",
-        "system/",
-        "ui/"
-      ],
-      "steps": [
-        "先用搜索确认仓库源码里已经没有对 `port_key.h`、`port_oled.h`、`port_systick.h`、`port_uart_vofa.h`、`port/hc_hal`、旧 `hc_common.h` 的剩余依赖，再执行删除，禁止边删边补新的兼容转发。",
-        "删除 `port/hc_hal/inc/`、`port/hc_hal/platform/`、`port/hc_common.h`、`port/port_key.h`、`port/port_oled.h`、`port/port_systick.h`、`port/port_uart_vofa.h`，如果 `port/` 为空则直接移除整个目录。",
-        "同步清理 `hc_cfg/hc_board_cfg.h` 中对 legacy compat layer 的文字或约束描述，避免 canonical 配置层继续把 `port/` 当成受支持边界。"
-      ],
-      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; if (Test-Path 'port') { throw 'port directory still exists' }; rg -n 'port/hc_hal|port_key\\.h|port_oled\\.h|port_systick\\.h|port_uart_vofa\\.h|#include\\s+[\\\"<]hc_common\\.h[\\\">]' . --glob '!README.md' --glob '!Ai_tools/**' | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy port compatibility references still present' }; rg -n 'legacy compat layer|port/hc_hal/inc/' hc_cfg/hc_board_cfg.h | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'hc_cfg/hc_board_cfg.h still mentions removed port compatibility layer' }; Write-Host 'T002 checks passed'\"",
-      "acceptance_criteria": [
-        "`port/` 目录及其历史兼容文件已从仓库源码树删除。",
-        "除 `README.md` 和 `Ai_tools/` 之外，源码文件中不再出现对已删除 `port/` 兼容层或旧 `hc_common.h` 的引用。",
-        "`hc_cfg/hc_board_cfg.h` 不再把 `port/` 视为 canonical 架构的一部分。"
-      ],
-      "stop_conditions": [
-        "如果任一遗留调用方仍直接依赖 `port/`，立即停止，不允许为了赶进度重新创建兼容壳。",
-        "如果删除 `port/` 必须同步改动 `README.md`、提示词或工具脚本才能继续，立即停止并把文档同步作为独立后续项提出。",
-        "如果删除后发现实际构建入口不在仓库内且必须调整外部工程配置，立即停止并单独汇报。"
-      ]
-    },
-    {
-      "id": "T003",
-      "title": "补齐禁止回退到 port 兼容层的静态检查",
-      "goal": "更新仓库内的架构检查脚本，使其在 `port/` 删除后能够阻止任何人重新引入旧 `port_*` 头、旧 `hc_common.h` 或新的 legacy 白名单。",
-      "allowed_files": [
-        "Ai_tools/tools/check_hc_embed_arch.py"
-      ],
-      "forbidden_files": [
-        "Ai_tools/agent/codex_plan.json",
-        "Ai_tools/prompts/",
-        "README.md",
-        "app/",
-        "examples/",
-        "hc_common/",
-        "hc_cfg/",
-        "hc_driver/",
-        "hc_hal/",
-        "port/",
-        "runtime/",
-        "scheduler/",
-        "service/",
-        "system/",
-        "ui/"
-      ],
-      "steps": [
-        "移除 `check_hc_embed_arch.py` 中当前对 `app/demo_blink/demo_blink.c -> port_oled.h` 的 legacy 特许，因为旧 `port/` 已经不再允许存在。",
-        "在保留现有 canonical `hc_hal` 公共头边界检查的基础上，新增 repo 级规则：禁止重新 include `port_key.h`、`port_oled.h`、`port_systick.h`、`port_uart_vofa.h` 和旧 `hc_common.h`，也禁止重新添加新的 legacy allowlist。",
-        "让脚本以“零 legacy、零 canonical 违例”为唯一通过条件；如果发现任何 `port/` 回退依赖，必须直接失败，而不是继续降级成 warning。"
-      ],
-      "check_command": "python Ai_tools/tools/check_hc_embed_arch.py",
-      "acceptance_criteria": [
-        "`Ai_tools/tools/check_hc_embed_arch.py` 不再保留 `port_oled.h` 的 legacy 豁免。",
-        "脚本能同时拦截 canonical `hc_hal` 边界违例和任何新出现的 `port/` compat 依赖。",
-        "执行脚本时，只有在仓库源码不存在 legacy `port/` 依赖且 canonical `hc_hal` 边界干净时才返回成功。"
-      ],
-      "stop_conditions": [
-        "如果为了让脚本通过必须重新加入新的 legacy 白名单，立即停止。",
-        "如果检查范围需要扩展到修改 README、提示词或校验器之外的工具链文件，立即停止。",
-        "如果脚本无法在不读取已删除 `port/` 文件的前提下完成检查，立即停止并先修正检查策略。"
-      ]
-    }
-  ]
+"review_status": "changes_requested",
+"submission_recommendation": "do_not_submit_yet",
+"review_summary": "EEPROM: 9项检查结论本身没有问题，但当前结果还不能直接进入执行：一是 HC_HAL_I2C_ID_AT24C02 在仓内未定义，必须先把 EEPROM 的 I2C 通道选择收口到 .c 内部；二是旧 void 签名和头文件宏是否被仓外调用方依赖无法从当前仓库证明，需要在执行时设置明确停线条件，禁止为了兼容性猜测而扩散改动范围。Encoder: 新增 T001-T003 三项规划任务，将 encoder 模块拆分为逻辑 ID 驱动接口 + 独立 hc_hal_encoder + 平台 port 下沉的标准三层架构，当前仅为规划阶段，不修改任何业务代码。",
+"tasks": [
+{
+"id": "F001",
+"title": "修正 EEPROM 驱动对未定义 I2C 通道标识的依赖",
+"goal": "仅在 hc_driver/eeprom 内部消除 HC_HAL_I2C_ID_AT24C02 依赖，把 EEPROM 所用 I2C 通道选择下沉到 hc_driver_eeprom.c 私有实现，保持已通过的 9 项接口与边界检查不回退。",
+"allowed_files": [
+"hc_driver/eeprom/at24cxx.h",
+"hc_driver/eeprom/hc_driver_eeprom.c"
+],
+"forbidden_files": [
+"Ai_tools/agent/codex_fix_plan.json",
+"Ai_tools/prompts/",
+"Ai_tools/tools/",
+"README.md",
+"app/",
+"examples/",
+"hc_app/",
+"hc_cfg/",
+"hc_common/",
+"hc_hal/",
+"hc_middleware/",
+"hc_service/",
+"hc_task/",
+"port/",
+"runtime/",
+"scheduler/",
+"service/",
+"system/",
+"ui/"
+],
+"steps": [
+"保持 at24cxx.h 继续只暴露设备级 API，不重新引入 HAL、芯片宏、stdio.h、printf、0xAB 探测或旧 void 签名。",
+"把 EEPROM 使用的 I2C 通道选择收口到 hc_driver/eeprom/hc_driver_eeprom.c 私有常量或私有 helper，优先绑定仓内已存在的板级符号 I2C_CH_AT24C02，禁止继续引用未定义的 HC_HAL_I2C_ID_AT24C02。",
+"把 HC_HAL_I2C_MemWrite 和 HC_HAL_I2C_MemRead 的通道参数改为上述 .c 内部私有映射，不在公开头中暴露任何 I2C 通道、器件地址、页大小、延时策略或 HAL 宏。",
+"保持当前已经锁定的 3 个公开 API 签名：HC_Error_e at24cxx_init(HC_VOID)、HC_Error_e at24cxx_write(HC_U16 addr, const HC_U8 *p_buffer, HC_U16 len)、HC_Error_e at24cxx_read(HC_U16 addr, HC_U8 *p_buffer, HC_U16 len)。"
+],
+"check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; rg -n -F 'HC_HAL_I2C_ID_AT24C02' hc_driver/eeprom | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'legacy undefined I2C id still referenced in EEPROM driver'; }; rg -n '#include\\s+\\\"stdio\\.h\\\"|printf\\s*\\(' hc_driver/eeprom | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'stdio or printf still present in EEPROM driver'; }; rg -n 'HC_HAL_I2C_|HC_HAL_SYSTICK_|AT24_I2C_|AT24_DELAY_MS|AT24C_DEV_ADDR|AT24_PAGE_SIZE|AT24_TOTAL_SIZE|E2PROM_TYPE' hc_driver/eeprom/at24cxx.h | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'public EEPROM header still leaks HAL or chip details'; }; rg -n 'HC_Error_e\\s+at24cxx_init\\s*\\(HC_VOID\\)' hc_driver/eeprom/at24cxx.h | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'missing HC_Error_e at24cxx_init(HC_VOID)'; }; rg -n 'HC_Error_e\\s+at24cxx_write\\s*\\(HC_U16\\s+addr,\\s+const\\s+HC_U8\\s*\\sp_buffer,\\s+HC_U16\\s+len\\)' hc_driver/eeprom/at24cxx.h | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'missing HC_Error_e write signature'; }; rg -n 'HC_Error_e\\s+at24cxx_read\\s*\\(HC_U16\\s+addr,\\s+HC_U8\\s*\\sp_buffer,\\s+HC_U16\\s+len\\)' hc_driver/eeprom/at24cxx.h | Out-Null; if ($LASTEXITCODE -ne 0) { throw 'missing HC_Error_e read signature'; }; rg -n '0XAB|0xAB' hc_driver/eeprom/hc_driver_eeprom.c | Out-Null; if ($LASTEXITCODE -eq 0) { throw 'destructive 0xAB sentinel probe still present'; }; git diff --check\"",
+"acceptance_criteria": [
+"hc_driver/eeprom 内不再出现 HC_HAL_I2C_ID_AT24C02。",
+"EEPROM 的 I2C 通道选择仅存在于 hc_driver/eeprom/hc_driver_eeprom.c 私有实现中，公开头不暴露任何 HAL 或芯片细节。",
+"先前 9 项检查继续成立，不因为本次修复回退到旧宏、旧签名或哨兵写入式探测。"
+],
+"stop_conditions": [
+"如果 I2C_CH_AT24C02 在当前允许修改范围内不可见，且要继续就必须改 hc_hal/、hc_cfg/、板级配置或其他允许范围外文件，立即停止。",
+"如果为了让 EEPROM 驱动编译通过必须重新把 I2C 通道宏暴露回 at24cxx.h，立即停止。",
+"如果实现过程中发现当前仓库内还有其他 EEPROM 驱动文件或调用方也依赖 HC_HAL_I2C_ID_AT24C02，且不在允许修改范围内，立即停止并单独汇报路径。"
+]
+},
+{
+"id": "F002",
+"title": "执行前做仓内兼容性扫描并保留范围外停线",
+"goal": "在不扩展修改范围的前提下，确认仓库内是否仍存在对旧 void 签名或 EEPROM 头文件旧宏的直接依赖；如果存在范围外调用方，则停止执行并反馈，而不是擅自补兼容层。",
+"allowed_files": [
+"hc_driver/eeprom/at24cxx.h",
+"hc_driver/eeprom/hc_driver_eeprom.c"
+],
+"forbidden_files": [
+"Ai_tools/agent/codex_fix_plan.json",
+"Ai_tools/prompts/",
+"Ai_tools/tools/",
+"README.md",
+"app/",
+"examples/",
+"hc_app/",
+"hc_cfg/",
+"hc_common/",
+"hc_hal/",
+"hc_middleware/",
+"hc_service/",
+"hc_task/",
+"port/",
+"runtime/",
+"scheduler/",
+"service/",
+"system/",
+"ui/"
+],
+"steps": [
+"在执行代码修改前，先搜索仓内对 at24cxx_init、at24cxx_write、at24cxx_read 的调用点，以及对 AT24_I2C_、AT24_DELAY_MS、AT24C_DEV_ADDR、E2PROM_TYPE 等旧宏的引用。",
+"如果仓内没有调用方依赖旧签名或旧宏，则直接按 F001 实施，不新增兼容层、不恢复旧接口、不改 allowed_files 之外的文件。",
+"如果仓内存在调用方依赖旧签名或旧宏，但路径不在允许修改范围内，则停止执行，输出依赖文件路径和命中的旧符号，不擅自扩散改动。"
+],
+"check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; rg -n '\\bat24cxx_init\\s*\\(|\\bat24cxx_write\\s*\\(|\\bat24cxx_read\\s*\\(' app hc_app hc_driver hc_middleware hc_service hc_task runtime scheduler service system ui port; rg -n 'AT24_I2C_|AT24_DELAY_MS|AT24C_DEV_ADDR|AT24_PAGE_SIZE|AT24_TOTAL_SIZE|E2PROM_TYPE' app hc_app hc_driver hc_middleware hc_service hc_task runtime scheduler service system ui port; git diff --check\"",
+"acceptance_criteria": [
+"执行前已经完成仓内调用点和旧宏依赖扫描。",
+"如果不存在范围外依赖，则修复任务可以继续且不需要新增兼容层。",
+"如果存在范围外依赖，则任务明确停止并输出依赖路径，而不是擅自修改允许范围外文件。"
+],
+"stop_conditions": [
+"如果需要为了兼容仓外调用方去猜测旧行为或补充未授权兼容宏，立即停止。",
+"如果扫描结果表明必须修改 hc_driver/eeprom 之外的文件才能保持兼容，立即停止。",
+"如果执行者无法证明扫描范围已经覆盖当前仓库内潜在调用点，立即停止并先补充证据。"
+]
+},
+{
+"id": "T001",
+"title": "锁定 encoder 的逻辑接口与 board 边界",
+"goal": "先把 encoder 模块的公共接口、逻辑资源命名和 board 配置职责固定下来，明确 driver.h 只暴露逻辑配置，不暴露任何厂商 HAL 类型或物理外设实例。",
+"allowed_files": [
+"hc_driver/encoder/hc_driver_encoder.h",
+"hc_cfg/hc_board_cfg.h",
+"Ai_tools/agent/codex_plan.json"
+],
+"forbidden_files": [
+"hc_driver/encoder/hc_driver_encoder.c",
+"hc_hal/hc_hal_timer.h",
+"hc_hal/hc_hal_gpio.h",
+"hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
+"hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
+"hc_hal/platform/stm32/src/hc_hal_gpio.c",
+"hc_hal/platform/mspm0/src/hc_hal_gpio.c",
+"hc_hal/platform/stm32/src/hc_hal_timer.c",
+"hc_hal/platform/mspm0/src/hc_hal_timer.c",
+"hc_driver/motor/hc_driver_motor.c",
+"README.md",
+"app/",
+"examples/",
+"runtime/",
+"scheduler/",
+"service/",
+"system/",
+"ui/"
+],
+"steps": [
+"把 hc_driver/encoder/hc_driver_encoder.h 规划为仅包含逻辑 ID、逻辑配置和按 ID 读取与复位的接口，不允许出现 GPIO_TypeDef、TIM_HandleTypeDef、GPIO_PIN_x、TIM_CHANNEL_x 或平台条件编译分支。",
+"把 hc_cfg/hc_board_cfg.h 规划为只承载 encoder 的逻辑资源默认值，例如 LEFT、RIGHT 的 reverse、ppr、quadrature_multiple，不写 htim3、htim4、VPIN_COUNT_L1、VPIN_COUNT_R2 等物理符号。",
+"明确后续执行阶段不保留旧的左右双输出聚合接口，直接切换到逻辑 ID API，不为兼容性猜测而扩散改动范围。"
+],
+"check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
+"acceptance_criteria": [
+"计划中已经明确 encoder 公共头的目标接口形态是逻辑 ID API，而不是 left/right 双指针聚合读取。",
+"计划中已经明确 hc_board_cfg.h 只放逻辑资源配置，不放任何物理外设实例、厂商类型或 CubeMX/SysConfig 宏。",
+"计划中没有要求在本阶段修改任何业务代码或平台实现文件。"
+],
+"stop_conditions": [
+"如果要继续细化就必须在本阶段直接修改 hc_driver、hc_hal 或 board 业务代码，立即停止。",
+"如果出现必须同时兼容旧聚合接口和新 ID 接口的要求，且用户没有单独确认，立即停止并重新收敛范围。",
+"如果需要把物理映射重新暴露回 driver 公共头，立即停止。"
+]
+},
+{
+"id": "T002",
+"title": "规划独立 hc_hal_encoder 与平台 port 下沉",
+"goal": "确定 encoder 不复用 hc_hal_timer，而是新建独立 hc_hal_encoder，由平台层各自消化 STM32 硬件编码器与 MSPM0 软件正交解码差异。",
+"allowed_files": [
+"hc_hal/hc_hal_encoder.h",
+"hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
+"hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
+"Ai_tools/agent/codex_plan.json"
+],
+"forbidden_files": [
+"hc_hal/hc_hal_timer.h",
+"hc_hal/hc_hal_gpio.h",
+"hc_driver/encoder/hc_driver_encoder.c",
+"hc_driver/encoder/hc_driver_encoder.h",
+"hc_hal/platform/stm32/src/hc_hal_timer.c",
+"hc_hal/platform/mspm0/src/hc_hal_timer.c",
+"hc_hal/platform/stm32/src/hc_hal_gpio.c",
+"hc_hal/platform/mspm0/src/hc_hal_gpio.c",
+"hc_driver/motor/hc_driver_motor.c",
+"README.md",
+"app/",
+"examples/",
+"runtime/",
+"scheduler/",
+"service/",
+"system/",
+"ui/"
+],
+"steps": [
+"规划新增 hc_hal/hc_hal_encoder.h，接口只包含按逻辑 encoder_id 的 Init、GetCount、Reset，不混入 periodic timer 语义。",
+"规划 STM32 平台 cfg 仅在 hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h 中维护 LEFT、RIGHT 到定时器实例的映射，由平台实现内部消化 htim3、htim4 等符号。",
+"规划 MSPM0 平台 cfg 仅在 hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h 中维护 LEFT、RIGHT 到 A/B 输入资源的映射，由平台实现内部消化 VPIN_COUNT_L1、VPIN_COUNT_L2、VPIN_COUNT_R1、VPIN_COUNT_R2 等符号。"
+],
+"check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
+"acceptance_criteria": [
+"计划中已经明确 encoder 的 HAL 边界是独立 hc_hal_encoder，而不是扩展 hc_hal_timer。",
+"计划中已经明确所有物理映射只能存在于 hc_hal/platform/*/cfg 或对应平台实现中。",
+"计划中没有要求把 CubeMX、SysConfig、Vendor HAL 类型暴露到 hc_driver 或 hc_cfg 公共层。"
+],
+"stop_conditions": [
+"如果实现路径需要把 encoder 能力塞回 hc_hal_timer 才能继续，立即停止。",
+"如果平台映射无法限定在 hc_hal/platform/* 范围内，立即停止。",
+"如果需要在本阶段直接改动平台实现代码而不是继续输出受控计划，立即停止。"
+]
+},
+{
+"id": "T003",
+"title": "规划 driver 纯逻辑化与中断 ownership 收口",
+"goal": "把 encoder driver 的职责收敛为参数校验、逻辑配置缓存和 reverse 方向处理，并把当前 GPIO 中断回调 ownership 从 driver 下沉到 HAL。",
+"allowed_files": [
+"hc_driver/encoder/hc_driver_encoder.c",
+"hc_hal/platform/stm32/src/hc_hal_encoder.c",
+"hc_hal/platform/mspm0/src/hc_hal_encoder.c",
+"Ai_tools/agent/codex_plan.json"
+],
+"forbidden_files": [
+"hc_hal/hc_hal_gpio.h",
+"hc_hal/hc_hal_timer.h",
+"hc_driver/key/hc_driver_key.c",
+"hc_driver/motor/hc_driver_motor.c",
+"hc_hal/platform/stm32/src/hc_hal_gpio.c",
+"hc_hal/platform/mspm0/src/hc_hal_gpio.c",
+"README.md",
+"app/",
+"examples/",
+"runtime/",
+"scheduler/",
+"service/",
+"system/",
+"ui/"
+],
+"steps": [
+"规划 hc_driver/encoder/hc_driver_encoder.c 后续只负责参数检查、逻辑配置缓存、调用 HC_HAL_Encoder_* 和 reverse 方向翻转，不再直接 include main.h、tim.h、ti_msp_dl_config.h，也不再写平台条件编译分支。",
+"规划 STM32 和 MSPM0 的 encoder 中断或计数细节全部进入各自 hc_hal_encoder 平台实现，driver 不再覆盖 HC_HAL_GPIO_Callback。",
+"在计划中加入静态验证要求：执行阶段必须检查 driver 中不再出现 HC_TARGET_STM32F1、HC_TARGET_MSPM0、TIM_HandleTypeDef、__HAL_TIM_GET_COUNTER、VPIN_COUNT_*、HC_HAL_GPIO_Callback。"
+],
+"check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
+"acceptance_criteria": [
+"计划中已经明确 driver.c 不再直接依赖任何平台头文件、厂商类型或物理资源宏。",
+"计划中已经明确 encoder 相关 GPIO 中断 ownership 下沉到 HAL，而不是继续由 driver 覆盖弱回调。",
+"计划中已经定义了执行阶段需要满足的关键静态检查项。"
+],
+"stop_conditions": [
+"如果要解决中断 ownership 必须同步重构 key、motor 或其他模块，立即停止并单独汇报耦合点。",
+"如果需要在本阶段新增验证脚本、修改 schema 或改动 Ai_tools/tools，立即停止。",
+"如果任务范围开始从 encoder 扩散到 I2C、UART、PWM 或其他模块，立即停止。"
+]
+}
+]
 }
