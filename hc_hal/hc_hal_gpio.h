@@ -49,7 +49,14 @@ HC_Error_e HC_HAL_GPIO_Write(HC_HAL_GPIO_Pin_e pin, HC_Bool_e state);
 HC_Error_e HC_HAL_GPIO_Read(HC_HAL_GPIO_Pin_e pin, HC_Bool_e *p_state);
 HC_Error_e HC_HAL_GPIO_Toggle(HC_HAL_GPIO_Pin_e pin);
 
-/* Non-encoder GPIO interrupt callback (weak, override in application). */
+/* ── IRQ handler registration (replaces single weak-callback override) ── */
+typedef HC_VOID (*HC_HAL_GPIO_IrqHandler_t)(HC_HAL_GPIO_Pin_e pin);
+
+#define HC_HAL_GPIO_MAX_IRQ_HANDLERS  4u
+
+HC_Error_e HC_HAL_GPIO_RegisterIrqHandler(HC_HAL_GPIO_IrqHandler_t handler);
+
+/* Legacy weak callback — still called after all registered handlers. */
 HC_VOID HC_HAL_GPIO_Callback(HC_HAL_GPIO_Pin_e pin);
 
 /* Thin helpers — call Write internally. */

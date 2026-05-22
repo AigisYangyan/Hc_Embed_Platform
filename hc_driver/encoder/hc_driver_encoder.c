@@ -6,6 +6,8 @@ static HC_Encoder_Config_t s_encoder_cfg[HC_ENCODER_COUNT];
 
 HC_Error_e HC_Driver_Encoder_Init(HC_VOID)
 {
+    HC_Error_e err;
+
     s_encoder_cfg[HC_ENCODER_LEFT].reverse = HC_BOARD_ENCODER_LEFT_REVERSE;
     s_encoder_cfg[HC_ENCODER_LEFT].ppr = HC_BOARD_ENCODER_LEFT_PPR;
     s_encoder_cfg[HC_ENCODER_LEFT].quadrature_multiple =
@@ -16,8 +18,14 @@ HC_Error_e HC_Driver_Encoder_Init(HC_VOID)
     s_encoder_cfg[HC_ENCODER_RIGHT].quadrature_multiple =
         HC_BOARD_ENCODER_RIGHT_QUADRATURE_MULTIPLE;
 
-    HC_HAL_Encoder_Init(HC_HAL_ENCODER_ID_LEFT);
-    HC_HAL_Encoder_Init(HC_HAL_ENCODER_ID_RIGHT);
+    err = HC_HAL_Encoder_Init(HC_HAL_ENCODER_ID_LEFT);
+    if (err != HC_HAL_OK) {
+        return err;
+    }
+    err = HC_HAL_Encoder_Init(HC_HAL_ENCODER_ID_RIGHT);
+    if (err != HC_HAL_OK) {
+        return err;
+    }
 
     return HC_HAL_OK;
 }

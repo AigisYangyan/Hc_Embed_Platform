@@ -15,6 +15,18 @@
 /* cfg 层定义的引脚配置表，按 VPin 枚举顺序一一对应。 */
 extern const HC_GPIO_PinCfg_t g_gpioPinMap[VPIN_MAX];
 
+static HC_HAL_GPIO_IrqHandler_t s_gpio_irq_handlers[HC_HAL_GPIO_MAX_IRQ_HANDLERS];
+static HC_U8 s_gpio_irq_handler_count = 0u;
+
+HC_Error_e HC_HAL_GPIO_RegisterIrqHandler(HC_HAL_GPIO_IrqHandler_t handler)
+{
+    if (handler == HC_NULL_PTR || s_gpio_irq_handler_count >= HC_HAL_GPIO_MAX_IRQ_HANDLERS) {
+        return HC_HAL_ERR_INVALID;
+    }
+    s_gpio_irq_handlers[s_gpio_irq_handler_count++] = handler;
+    return HC_HAL_OK;
+}
+
 /** @brief 按端口聚合的中断极性临时配置，用于初始化时一次写入寄存器。 */
 typedef struct {
     GPIO_Regs *port;
@@ -103,11 +115,15 @@ static void hc_hal_gpio_apply_irq_cfg(const HC_HAL_GPIO_PortIrqCfg_t *p_port_cfg
 }
 
 /**
- * @brief Dispatch interrupt to the weak callback. Encoder decoding is handled
- *        by hc_driver_encoder which overrides HC_HAL_GPIO_Callback.
+ * @brief Dispatch interrupt to registered handlers, then legacy weak callback.
  */
 static void hc_hal_gpio_handle_irq(HC_HAL_GPIO_VPin_e vpin)
 {
+    HC_U8 i;
+
+    for (i = 0u; i < s_gpio_irq_handler_count; i++) {
+        s_gpio_irq_handlers[i]((HC_HAL_GPIO_Pin_e)vpin);
+    }
     HC_HAL_GPIO_Callback(vpin);
 }
 

@@ -86,6 +86,8 @@ static HC_Bool_e key_read_pressed(Key_Id_e key, HC_Bool_e* p_pressed)
  */
 void Key_Init(void)
 {
+    HC_HAL_GPIO_RegisterIrqHandler(key_irq_handler);
+
     for (int i = 0; i < (int)KEY_ID_COUNT; ++i) {
         HC_Bool_e pressed = HC_FALSE;
 
@@ -166,22 +168,17 @@ void Key_Scan(void)
     }
 }
 
-/**
- * @brief GPIO 中断回调（覆写 HAL 弱函数）
- * @note  K1~K4 下降沿触发时，仅置 pending 标志开始观察；
- *        已处于稳定按下时忽略额外中断，避免一次按压重复触发
- */
-void HC_HAL_GPIO_Callback(HC_HAL_GPIO_VPin_e vpin)
+static void key_irq_handler(HC_HAL_GPIO_Pin_e pin)
 {
     int i = -1;
 
-    if      (vpin == VPIN_K1) { i = (int)KEY_ID_K1; }
-    else if (vpin == VPIN_K2) { i = (int)KEY_ID_K2; }
-    else if (vpin == VPIN_K3) { i = (int)KEY_ID_K3; }
-    else if (vpin == VPIN_K4) { i = (int)KEY_ID_K4; }
+    if      (pin == VPIN_K1) { i = (int)KEY_ID_K1; }
+    else if (pin == VPIN_K2) { i = (int)KEY_ID_K2; }
+    else if (pin == VPIN_K3) { i = (int)KEY_ID_K3; }
+    else if (pin == VPIN_K4) { i = (int)KEY_ID_K4; }
 
     if ((i >= 0) && (s_key_stable_pressed[i] == HC_FALSE)) {
-        s_key_irq_pending[i] = HC_TRUE;//标记该键有下降沿，等待 Key_Scan() 读电平确认
+        s_key_irq_pending[i] = HC_TRUE;
         s_key_press_debounce_count[i] = 0u;
     }
 }

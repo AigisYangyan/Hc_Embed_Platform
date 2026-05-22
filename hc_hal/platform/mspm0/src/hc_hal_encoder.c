@@ -44,51 +44,7 @@ static void encoder_settle_edges(void)
     }
 }
 
-HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
-{
-    if (id >= HC_HAL_ENCODER_ID_MAX) {
-        return HC_HAL_ERR_INVALID;
-    }
-
-    if (id == HC_HAL_ENCODER_ID_LEFT) {
-        s_count_left = 0;
-    } else {
-        s_count_right = 0;
-    }
-    return HC_HAL_OK;
-}
-
-HC_Error_e HC_HAL_Encoder_GetCount(HC_HAL_Encoder_Id_e id, HC_S32 *p_count)
-{
-    if (p_count == (void*)0 || id >= HC_HAL_ENCODER_ID_MAX) {
-        return HC_HAL_ERR_NULL_PTR;
-    }
-
-    encoder_settle_edges();
-
-    *p_count = (id == HC_HAL_ENCODER_ID_LEFT) ? s_count_left : s_count_right;
-    return HC_HAL_OK;
-}
-
-HC_Error_e HC_HAL_Encoder_Reset(HC_HAL_Encoder_Id_e id)
-{
-    if (id >= HC_HAL_ENCODER_ID_MAX) {
-        return HC_HAL_ERR_INVALID;
-    }
-
-    if (id == HC_HAL_ENCODER_ID_LEFT) {
-        s_count_left = 0;
-    } else {
-        s_count_right = 0;
-    }
-    return HC_HAL_OK;
-}
-
-/* Override weak GPIO callback for encoder edge capture.
- * NOTE: hc_driver_key also overrides HC_HAL_GPIO_Callback.
- * On MSPM0 only one override can be active; a multi-handler dispatch
- * mechanism is needed to resolve this pre-existing coupling. */
-HC_VOID HC_HAL_GPIO_Callback(HC_HAL_GPIO_Pin_e pin)
+static HC_VOID encoder_irq_handler(HC_HAL_GPIO_Pin_e pin)
 {
     switch (pin) {
     case HC_HAL_ENCODER_LEFT_PIN_A:
@@ -110,4 +66,49 @@ HC_VOID HC_HAL_GPIO_Callback(HC_HAL_GPIO_Pin_e pin)
     default:
         break;
     }
+}
+
+HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
+{
+    if (id >= HC_HAL_ENCODER_ID_MAX) {
+        return HC_HAL_ERR_INVALID;
+    }
+
+    if (id == HC_HAL_ENCODER_ID_LEFT) {
+        s_count_left = 0;
+    } else {
+        s_count_right = 0;
+    }
+
+    HC_HAL_GPIO_RegisterIrqHandler(encoder_irq_handler);
+    return HC_HAL_OK;
+}
+
+HC_Error_e HC_HAL_Encoder_GetCount(HC_HAL_Encoder_Id_e id, HC_S32 *p_count)
+{
+    if (p_count == (void*)0) {
+        return HC_HAL_ERR_NULL_PTR;
+    }
+    if (id >= HC_HAL_ENCODER_ID_MAX) {
+        return HC_HAL_ERR_INVALID;
+    }
+
+    encoder_settle_edges();
+
+    *p_count = (id == HC_HAL_ENCODER_ID_LEFT) ? s_count_left : s_count_right;
+    return HC_HAL_OK;
+}
+
+HC_Error_e HC_HAL_Encoder_Reset(HC_HAL_Encoder_Id_e id)
+{
+    if (id >= HC_HAL_ENCODER_ID_MAX) {
+        return HC_HAL_ERR_INVALID;
+    }
+
+    if (id == HC_HAL_ENCODER_ID_LEFT) {
+        s_count_left = 0;
+    } else {
+        s_count_right = 0;
+    }
+    return HC_HAL_OK;
 }

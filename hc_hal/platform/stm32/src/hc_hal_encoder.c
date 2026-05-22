@@ -2,51 +2,48 @@
 #include "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h"
 #include "main.h"
 
-HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
+static TIM_HandleTypeDef* encoder_get_tim(HC_HAL_Encoder_Id_e id)
 {
     switch (id) {
-    case HC_HAL_ENCODER_ID_LEFT:
-        HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
-        break;
-    case HC_HAL_ENCODER_ID_RIGHT:
-        HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
-        break;
-    default:
+    case HC_HAL_ENCODER_ID_LEFT:   return &htim4;
+    case HC_HAL_ENCODER_ID_RIGHT:  return &htim3;
+    default:                       return HC_NULL_PTR;
+    }
+}
+
+HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
+{
+    TIM_HandleTypeDef *htim = encoder_get_tim(id);
+
+    if (htim == HC_NULL_PTR) {
         return HC_HAL_ERR_INVALID;
     }
+    HAL_TIM_Encoder_Start(htim, TIM_CHANNEL_ALL);
     return HC_HAL_OK;
 }
 
 HC_Error_e HC_HAL_Encoder_GetCount(HC_HAL_Encoder_Id_e id, HC_S32 *p_count)
 {
+    TIM_HandleTypeDef *htim;
+
     if (p_count == (void*)0) {
         return HC_HAL_ERR_NULL_PTR;
     }
-
-    switch (id) {
-    case HC_HAL_ENCODER_ID_LEFT:
-        *p_count = (HC_S16)__HAL_TIM_GET_COUNTER(&htim4);
-        break;
-    case HC_HAL_ENCODER_ID_RIGHT:
-        *p_count = (HC_S16)__HAL_TIM_GET_COUNTER(&htim3);
-        break;
-    default:
+    htim = encoder_get_tim(id);
+    if (htim == HC_NULL_PTR) {
         return HC_HAL_ERR_INVALID;
     }
+    *p_count = (HC_S16)__HAL_TIM_GET_COUNTER(htim);
     return HC_HAL_OK;
 }
 
 HC_Error_e HC_HAL_Encoder_Reset(HC_HAL_Encoder_Id_e id)
 {
-    switch (id) {
-    case HC_HAL_ENCODER_ID_LEFT:
-        __HAL_TIM_SET_COUNTER(&htim4, 0);
-        break;
-    case HC_HAL_ENCODER_ID_RIGHT:
-        __HAL_TIM_SET_COUNTER(&htim3, 0);
-        break;
-    default:
+    TIM_HandleTypeDef *htim = encoder_get_tim(id);
+
+    if (htim == HC_NULL_PTR) {
         return HC_HAL_ERR_INVALID;
     }
+    __HAL_TIM_SET_COUNTER(htim, 0);
     return HC_HAL_OK;
 }

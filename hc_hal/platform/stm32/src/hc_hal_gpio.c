@@ -5,6 +5,19 @@
 extern const HC_GPIO_PinCfg_t g_gpioPinMap[VPIN_MAX];
 
 /* 平台后端负责把项目自定义抽象枚举翻译成 STM32 HAL 常量。 */
+
+static HC_HAL_GPIO_IrqHandler_t s_gpio_irq_handlers[HC_HAL_GPIO_MAX_IRQ_HANDLERS];
+static HC_U8 s_gpio_irq_handler_count = 0u;
+
+HC_Error_e HC_HAL_GPIO_RegisterIrqHandler(HC_HAL_GPIO_IrqHandler_t handler)
+{
+    if (handler == HC_NULL_PTR || s_gpio_irq_handler_count >= HC_HAL_GPIO_MAX_IRQ_HANDLERS) {
+        return HC_HAL_ERR_INVALID;
+    }
+    s_gpio_irq_handlers[s_gpio_irq_handler_count++] = handler;
+    return HC_HAL_OK;
+}
+
 HC_LOCAL HC_U32 hc_hal_gpio_pull_to_stm32(HC_GPIO_Pull_e pull)
 {
     switch (pull) {
@@ -185,8 +198,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     /* STM32 的物理引脚中断先翻译成项目内的虚拟引脚，再交给上层。 */
     HC_HAL_GPIO_VPin_e vpin = hc_hal_gpio_find_irq_vpin((HC_U16)GPIO_Pin);
+    HC_U8 i;
 
     if (vpin < VPIN_MAX) {
+        for (i = 0u; i < s_gpio_irq_handler_count; i++) {
+            s_gpio_irq_handlers[i]((HC_HAL_GPIO_Pin_e)vpin);
+        }
         HC_HAL_GPIO_Callback(vpin);
     }
 }
