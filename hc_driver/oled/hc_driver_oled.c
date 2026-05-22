@@ -351,12 +351,21 @@ void OLED_DrawBMP(uint8_t x, uint8_t y, uint8_t sizex, uint8_t sizey,
 
 void OLED_Init(void)
 {
+    HC_Error_e ret;
+
     g_tOLED.bus = s_tOledDefaultBus;
     oled_i2c_sda_unlock();
 
-    (void)HC_HAL_SYSTICK_DelayMs(OLED_POWER_STABLE_DELAY_MS);
+    ret = HC_HAL_SYSTICK_DelayMs(OLED_POWER_STABLE_DELAY_MS);
+    if (ret != HC_HAL_OK) {
+        return;
+    }
 
-    (void)oled_send_init_sequence();
+    ret = oled_send_init_sequence();
+    if (ret != HC_HAL_OK) {
+        return;
+    }
+
     s_oled_ready = HC_TRUE;
 }
 
@@ -366,7 +375,7 @@ HC_Error_e OLED_Process(void)
         return HC_HAL_OK;
     }
 
-    return HC_HAL_OK;
+    return HC_HAL_ERR_NOT_INIT;
 }
 
 HC_Bool_e OLED_IsReady(void)

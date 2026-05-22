@@ -149,6 +149,12 @@ HC_Error_e HC_HAL_I2C_Write(HC_HAL_I2C_Ch_e ch, HC_U8 addr, const HC_U8 *p_data,
     return HC_HAL_OK;
 }
 
+HC_Error_e HC_HAL_I2C_MasterWrite(HC_HAL_I2C_Ch_e ch, HC_U8 addr,
+                                   const HC_U8 *p_data, HC_U16 len)
+{
+    return HC_HAL_I2C_Write(ch, addr, p_data, len);
+}
+
 HC_Error_e HC_HAL_I2C_BusRecover(HC_HAL_I2C_Ch_e ch)
 {
     // Minimal recovery

@@ -46,6 +46,12 @@ HC_Error_e HC_HAL_I2C_Write(HC_HAL_I2C_Ch_e ch, HC_U8 addr, const HC_U8 *p_data,
     return hc_hal_i2c_map_status(HAL_I2C_Master_Transmit(handle, (HC_U16)(addr << 1), (HC_U8 *)p_data, len, 100u));
 }
 
+HC_Error_e HC_HAL_I2C_MasterWrite(HC_HAL_I2C_Ch_e ch, HC_U8 addr,
+                                   const HC_U8 *p_data, HC_U16 len)
+{
+    return HC_HAL_I2C_Write(ch, addr, p_data, len);
+}
+
 HC_Error_e HC_HAL_I2C_BusRecover(HC_HAL_I2C_Ch_e ch)
 {
     I2C_HandleTypeDef *handle = hc_hal_i2c_get_handle(ch);

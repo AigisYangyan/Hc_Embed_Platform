@@ -44,7 +44,7 @@ static void encoder_settle_edges(void)
     }
 }
 
-static HC_VOID encoder_irq_handler(HC_HAL_GPIO_Pin_e pin)
+static HC_VOID encoder_irq_handler(HC_HAL_GPIO_VPin_e pin)
 {
     switch (pin) {
     case HC_HAL_ENCODER_LEFT_PIN_A:
