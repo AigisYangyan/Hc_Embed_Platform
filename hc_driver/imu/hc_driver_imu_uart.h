@@ -18,8 +18,6 @@ typedef struct {
     char  version[8];
 } imu_measurement_t;
 
-HC_Error_e IMU_UART_Send(const uint8_t *data, uint16_t len);
-
 void IMU_UART_RxByte(uint8_t data);
 void IMU_UART_RxBytes(volatile uint8_t *data, uint16_t len);
 void IMU_UART_Process(void);
@@ -50,7 +48,6 @@ HC_Error_e IMU_UART_CalibrationImu(void);
 HC_Error_e IMU_UART_CalibrationMag(void);
 HC_Error_e IMU_UART_CalibrationTemp(float now_temperature);
 HC_Error_e IMU_UART_ResetUserData(void);
-HC_Error_e IMU_UART_RebootDevice(void);
 HC_Error_e IMU_UART_WaitCalibration(uint8_t function, uint32_t timeout_ms);
 
 #ifdef __cplusplus

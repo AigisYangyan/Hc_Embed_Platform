@@ -69,21 +69,35 @@
 int g_emm42_default_acceleration = 0;
 int g_emm42_default_speed = 30;
 
-extern HC_Error_e Emm42_TransportSendMgmtFrame(const uint8_t *frame, uint8_t len);
-extern HC_Error_e Emm42_TransportSubmitControlFrame(uint8_t axis_id,
-                                                    const uint8_t *frame,
-                                                    uint8_t len);
+/* ── Transport callback pointers (static injection) ──────────────────── */
+
+static HC_Error_e (*s_transport_send_mgmt)(const uint8_t *frame, uint8_t len) = NULL;
+static HC_Error_e (*s_transport_submit_ctrl)(uint8_t axis_id,
+                                              const uint8_t *frame,
+                                              uint8_t len) = NULL;
+
+HC_Error_e Emm42_RegisterTransport(
+    HC_Error_e (*send_mgmt)(const uint8_t *frame, uint8_t len),
+    HC_Error_e (*submit_ctrl)(uint8_t axis_id, const uint8_t *frame, uint8_t len))
+{
+    if ((send_mgmt == NULL) || (submit_ctrl == NULL)) {
+        return HC_HAL_ERR_INVALID;
+    }
+    s_transport_send_mgmt   = send_mgmt;
+    s_transport_submit_ctrl = submit_ctrl;
+    return HC_HAL_OK;
+}
 
 /* ---- 静态辅助函数 ------------------------------------------------------- */
 
 /* 通过共享串口运输层发送一整帧管理类 EMM42 指令。 */
 static void emm42_send_mgmt_frame(const uint8_t *frame, uint8_t length)
 {
-    if ((frame == 0) || (length == 0u)) {
+    if ((frame == 0) || (length == 0u) || (s_transport_send_mgmt == NULL)) {
         return;
     }
 
-    (void)Emm42_TransportSendMgmtFrame(frame, length);
+    (void)s_transport_send_mgmt(frame, length);
 }
 
 /* 将最新控制命令提交给共享总线，旧的未发控制帧会被覆盖。 */
@@ -91,11 +105,11 @@ static void emm42_submit_control_frame(uint8_t axis_id,
                                        const uint8_t *frame,
                                        uint8_t length)
 {
-    if ((frame == 0) || (length == 0u)) {
+    if ((frame == 0) || (length == 0u) || (s_transport_submit_ctrl == NULL)) {
         return;
     }
 
-    (void)Emm42_TransportSubmitControlFrame(axis_id, frame, length);
+    (void)s_transport_submit_ctrl(axis_id, frame, length);
 }
 
 /* 按上层 RPM 口径收紧速度值，避免传入超范围。 */

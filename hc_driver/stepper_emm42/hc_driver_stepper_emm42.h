@@ -2,10 +2,17 @@
 #define HC_DRIVER_STEPPER_EMM42_H
 
 #include "hc_common/hc_types.h"
+#include "hc_common/hc_err.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* ── Transport registration ─────────────────────────────────────────── */
+
+HC_Error_e Emm42_RegisterTransport(
+    HC_Error_e (*send_mgmt)(const uint8_t *frame, uint8_t len),
+    HC_Error_e (*submit_ctrl)(uint8_t axis_id, const uint8_t *frame, uint8_t len));
 
 /* ── Device-level constants ─────────────────────────────────────────── */
 

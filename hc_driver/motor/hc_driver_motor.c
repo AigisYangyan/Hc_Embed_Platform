@@ -1,7 +1,6 @@
 #include "hc_driver_motor.h"
 #include "hc_hal_gpio.h"
 #include "hc_hal_pwm.h"
-#include "middleware/pid/pid.h"
 
 /* ── 私有类型定义 ──────────────────────────────────────────────────── */
 
@@ -17,7 +16,6 @@ typedef struct {
     int16_t              encoder_delta;
     int32_t              encoder_total;
     float                speed;
-    PID_T*               p_pid;
 } Motor_T;
 
 /* ── 私有电机实例 ──────────────────────────────────────────────────── */
@@ -32,13 +30,11 @@ void Motor_Init(void)
     s_motors[MOTOR_LEFT].hbridge.pin_rev = VPIN_MOTOR_L1;
     s_motors[MOTOR_LEFT].pwm_ch = HC_HAL_PWM_CH_MOTOR_L;
     s_motors[MOTOR_LEFT].encoder_sign = -1;
-    s_motors[MOTOR_LEFT].p_pid = &g_tLeftMotorPID;
 
     s_motors[MOTOR_RIGHT].hbridge.pin_fwd = VPIN_MOTOR_R1;
     s_motors[MOTOR_RIGHT].hbridge.pin_rev = VPIN_MOTOR_R2;
     s_motors[MOTOR_RIGHT].pwm_ch = HC_HAL_PWM_CH_MOTOR_R;
     s_motors[MOTOR_RIGHT].encoder_sign = +1;
-    s_motors[MOTOR_RIGHT].p_pid = &g_tRightMotorPID;
 
     for (int i = 0; i < MOTOR_COUNT; i++) {
         s_motors[i].encoder_delta = 0;
