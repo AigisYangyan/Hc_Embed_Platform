@@ -16,12 +16,12 @@ Ai_tools/prompts/GLOBAL_CLAUDE_RULES.md
 
 1. 先读取 `Ai_tools/agent/codex_plan.json`。
 2. 如果用户没有指定 task id，只列出 tasks，不修改代码。
-3. 如果用户指定了 task id，只执行该 task。
+3. 如果用户指定了 task id，第一轮也只能为该 task 输出执行计划，不得修改任何文件。
 4. 严格遵守 allowed_files。
 5. 严格禁止修改 forbidden_files。
 6. 如果发现必须修改 allowed_files 之外的文件，立刻停止并说明原因。
 7. 第一轮只输出执行计划，不要立刻修改代码。
-8. 用户确认后，每次只做一个小步骤。
+8. 只有在用户再次明确确认“开始执行”后，才能进入代码修改阶段。
 9. 修改完成后运行 task 里的 check_command。
 10. 如果 check_command 失败，只修复和当前 task 直接相关的问题。
 11. 最后输出：

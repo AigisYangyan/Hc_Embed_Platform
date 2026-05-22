@@ -2,115 +2,69 @@
   "project_summary": "当前需求是为 HC_EMBED_RULES 架构迁移做前置准备，先通过受控 JSON 施工单和本地 planning skill 固化执行边界，不修改任何业务代码。",
   "tasks": [
     {
-      "id": "FX01",
-      "title": "修复 GPIO 单弱回调导致的 MSPM0 key/encoder 中断冲突",
-      "goal": "移除 encoder 与 key 对 HC_HAL_GPIO_Callback 的重复覆写，改为由 GPIO HAL 提供可注册的中断分发机制，使 MSPM0 下按键与编码器可同时接收 GPIO 中断而不互相抢占。",
+      "id": "FX07",
+      "title": "将 key 与 oled 公共头按 README 新规下放到各自 driver 子目录",
+      "goal": "仅修改 key/oled 两个 driver 及其当前真实调用方，把 `hc_driver/hc_driver_key.h` 与 `hc_driver/hc_driver_oled.h` 下放为 `hc_driver/key/hc_driver_key.h` 与 `hc_driver/oled/hc_driver_oled.h`，同步删除根目录旧头与 `hc_driver/key/key.h` 兼容头，并把 live include 全部切换到 `hc_driver/<name>/` 子目录形式；`oled_hardware_i2c.h` 经检查仅被 `hc_driver/oled/hc_driver_oled.c` 依赖，可明确收口为 `hc_driver/oled` 内部私有头。",
       "allowed_files": [
-        "hc_hal/hc_hal_gpio.h",
-        "hc_hal/platform/mspm0/src/hc_hal_gpio.c",
-        "hc_hal/platform/stm32/src/hc_hal_gpio.c",
-        "hc_hal/platform/mspm0/src/hc_hal_encoder.c",
-        "hc_driver/key/hc_driver_key.c"
-      ],
-      "forbidden_files": [
-        "hc_driver/encoder/hc_driver_encoder.h",
-        "hc_driver/encoder/hc_driver_encoder.c",
-        "hc_hal/hc_hal_encoder.h",
-        "hc_cfg/hc_board_cfg.h",
-        "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
-        "hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
-        "hc_driver/motor/hc_driver_motor.c",
-        "Ai_tools/tools/validate_codex_plan.ps1",
-        "README.md"
-      ],
-      "steps": [
-        "在 hc_hal/hc_hal_gpio.h 定义 GPIO IRQ handler 注册接口与 handler 类型，保持 GPIO 读写 API 不变，不再要求业务或 HAL 子模块覆写单一弱回调。",
-        "在 hc_hal/platform/mspm0/src/hc_hal_gpio.c 与 hc_hal/platform/stm32/src/hc_hal_gpio.c 内实现统一的已注册 handler 分发逻辑，GPIO 中断入口只负责遍历并调用注册 handler，不再依赖单个覆写者。",
-        "把 hc_hal/platform/mspm0/src/hc_hal_encoder.c 与 hc_driver/key/hc_driver_key.c 改为在各自 Init 路径注册 GPIO IRQ handler，并删除它们对 HC_HAL_GPIO_Callback 的直接定义。"
-      ],
-      "check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
-      "acceptance_criteria": [
-        "仓库内不再同时存在 encoder 与 key 对 HC_HAL_GPIO_Callback 的强定义。",
-        "GPIO HAL 对外暴露的是可注册分发机制，而不是单弱回调 ownership。",
-        "MSPM0 下 encoder 与 key 的 GPIO 中断都通过注册路径接入，二者可以共存。"
-      ],
-      "stop_conditions": [
-        "如果修复需要把模块名或资源映射重新硬编码到 GPIO HAL 中，立即停止。",
-        "如果继续实施必须修改 hc_driver/motor 或其他本任务 allowed_files 之外的业务模块，立即停止。",
-        "如果无法在不破坏现有 GPIO 读写 API 的前提下完成中断分发改造，立即停止并反馈。"
-      ]
-    },
-    {
-      "id": "FX02",
-      "title": "修复 encoder 初始化错误传播与错误码语义",
-      "goal": "确保 driver 层不会吞掉 HAL 初始化失败，并统一 encoder HAL 对无效参数与空指针的错误返回语义。",
-      "allowed_files": [
-        "hc_driver/encoder/hc_driver_encoder.c",
-        "hc_hal/platform/stm32/src/hc_hal_encoder.c",
-        "hc_hal/platform/mspm0/src/hc_hal_encoder.c"
-      ],
-      "forbidden_files": [
-        "hc_driver/encoder/hc_driver_encoder.h",
-        "hc_hal/hc_hal_encoder.h",
-        "hc_cfg/hc_board_cfg.h",
-        "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
-        "hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
-        "hc_hal/hc_hal_gpio.h",
         "hc_driver/key/hc_driver_key.c",
-        "Ai_tools/tools/validate_codex_plan.ps1",
-        "README.md"
-      ],
-      "steps": [
-        "修改 hc_driver/encoder/hc_driver_encoder.c，使 HC_Driver_Encoder_Init 逐个检查 HC_HAL_Encoder_Init 的返回值，并在任一实例初始化失败时向上传播明确错误，不再无条件返回 HC_HAL_OK。",
-        "统一 hc_hal/platform/mspm0/src/hc_hal_encoder.c 中 GetCount 的参数校验语义：空指针返回 HC_HAL_ERR_NULL_PTR，无效 id 返回 HC_HAL_ERR_INVALID。",
-        "确认 STM32 与 MSPM0 的 Reset 和 GetCount 在非法 id 下都返回一致的 HC_HAL_ERR_INVALID，不新增兼容分支。"
-      ],
-      "check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
-      "acceptance_criteria": [
-        "HC_Driver_Encoder_Init 不再吞掉任一 HAL 初始化失败。",
-        "MSPM0 encoder HAL 的空指针与非法 id 错误码语义与 STM32 保持一致。",
-        "本次修复不改变 encoder 公共头文件接口。"
-      ],
-      "stop_conditions": [
-        "如果要完成错误传播必须改动 encoder 公共 API 签名，立即停止。",
-        "如果平台实现缺少可用于表达失败的现有错误码并需要扩展错误码枚举，立即停止。",
-        "如果修复过程中发现还有其他 encoder 调用方依赖旧的假成功行为，且不在允许修改范围内，立即停止并汇报路径。"
-      ]
-    },
-    {
-      "id": "FX03",
-      "title": "让 STM32 encoder 实现真实消费 port cfg 映射",
-      "goal": "消除 STM32 encoder 实现中对 htim3/htim4 的直接写死访问，使 hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h 中的 LEFT/RIGHT 映射宏真正成为唯一板级入口。",
-      "allowed_files": [
-        "hc_hal/platform/stm32/cfg/hc_hal_board_cfg.h",
-        "hc_hal/platform/stm32/src/hc_hal_encoder.c"
+        "hc_driver/key/hc_driver_key.h",
+        "hc_driver/key/key.h",
+        "hc_driver/hc_driver_key.h",
+        "hc_driver/oled/hc_driver_oled.c",
+        "hc_driver/oled/hc_driver_oled.h",
+        "hc_driver/oled/oled_hardware_i2c.h",
+        "hc_driver/hc_driver_oled.h",
+        "app/demo_blink/demo_blink.c",
+        "service/ui_service.c",
+        "system/sys_init.c",
+        "ui/menu_core.c",
+        "ui/menu_core.h",
+        "ui/menu_pages.c",
+        "ui/ui_event.h"
       ],
       "forbidden_files": [
+        "README.md",
+        "Ai_tools/agent/codex_plan.json",
+        "Ai_tools/agent/codex_plan.schema.json",
+        "Ai_tools/agent/codex_plan.example.json",
+        "Ai_tools/agent/codex_plan_key.json",
+        "Ai_tools/agent/codex_plan_oled.json",
+        "Ai_tools/tools/validate_codex_plan.ps1",
+        "hc_driver/oled/oledfont.h",
         "hc_driver/encoder/hc_driver_encoder.h",
         "hc_driver/encoder/hc_driver_encoder.c",
-        "hc_hal/hc_hal_encoder.h",
-        "hc_cfg/hc_board_cfg.h",
-        "hc_hal/platform/mspm0/src/hc_hal_encoder.c",
-        "hc_hal/platform/mspm0/cfg/hc_hal_board_cfg.h",
+        "hc_driver/motor/hc_driver_motor.h",
+        "hc_driver/motor/hc_driver_motor.c",
+        "hc_driver/imu/hc_driver_imu_uart.h",
+        "hc_driver/imu/hc_driver_imu_uart.c",
+        "hc_driver/mpu6050/hc_driver_mpu6050.h",
+        "hc_driver/mpu6050/hc_driver_mpu6050.c",
+        "hc_driver/stepper_emm42/hc_driver_stepper_emm42.h",
+        "hc_driver/stepper_emm42/hc_driver_stepper_emm42.c",
+        "hc_driver/uart_vofa/hc_driver_uart_vofa.h",
+        "hc_driver/uart_vofa/hc_driver_uart_vofa.c",
         "hc_hal/hc_hal_gpio.h",
-        "Ai_tools/tools/validate_codex_plan.ps1",
-        "README.md"
+        "hc_hal/hc_hal_i2c.h"
       ],
       "steps": [
-        "在 hc_hal/platform/stm32/src/hc_hal_encoder.c 中新增私有 helper，根据 hc_hal_board_cfg.h 中的 HC_HAL_ENCODER_TIM_LEFT 与 HC_HAL_ENCODER_TIM_RIGHT 解析到具体 TIM_HandleTypeDef*，实现层内部再消化 htim3/htim4。",
-        "让 Init、GetCount、Reset 全部通过该私有解析 helper 访问编码器定时器，不再在业务分支里直接写死 htim3 或 htim4。",
-        "保持物理句柄解析只存在于 STM32 port 实现内部，不把 TIM_HandleTypeDef、CubeMX 句柄名或解析 helper 暴露到公共头文件。"
+        "固定公开边界：key 的正式公共接口仅保留 `Key_Id_e`、`Key_Init()`、`Key_Scan()`、`Key_IsPressed()`、`Key_GetPressEvent()`、`Key_PollPressEvent()`；oled 的正式公共接口仅保留当前初始化、ready 查询、清屏、绘制和显示控制 API。debounce 状态、VPIN 映射、I2C bus 绑定、初始化状态机、`OLED_CMD/OLED_DATA` 等硬件细节继续留在各自 driver 内部。",
+        "在 `hc_driver/key/` 下建立正式公共头 `hc_driver_key.h`，把现有根目录 `hc_driver/hc_driver_key.h` 的公开声明迁入该文件；`hc_driver/key/hc_driver_key.c` 改为在同目录包含新头；删除 `hc_driver/key/key.h` 兼容头与根目录 `hc_driver/hc_driver_key.h`，不保留根目录转发层。",
+        "在 `hc_driver/oled/` 下建立正式公共头 `hc_driver_oled.h`，把现有根目录 `hc_driver/hc_driver_oled.h` 的公开声明迁入该文件；`hc_driver/oled/hc_driver_oled.c` 改为在同目录包含新头；`hc_driver/oled/oled_hardware_i2c.h` 明确降为内部私有头，只保留 `hc_driver/oled/hc_driver_oled.c` 真正需要的总线结构、命令常量和私有辅助声明；删除根目录 `hc_driver/hc_driver_oled.h`。",
+        "把真实调用方全部切到新 include 路径：`service/ui_service.c`、`system/sys_init.c`、`ui/menu_core.h`、`ui/ui_event.h` 改为包含 `hc_driver/key/hc_driver_key.h`；`app/demo_blink/demo_blink.c`、`system/sys_init.c`、`ui/menu_core.c`、`ui/menu_pages.c` 改为包含 `hc_driver/oled/hc_driver_oled.h`。",
+        "保持最小变更：只改头文件落点、driver 内部 include 和调用方 include 路径；不改函数名、签名、调用顺序、菜单行为、OLED 显示行为，也不新增 README 例外说明、兼容根头或新的 middleware/service 抽象。"
       ],
-      "check_command": "powershell -ExecutionPolicy Bypass -File Ai_tools/tools/validate_codex_plan.ps1",
+      "check_command": "powershell -NoProfile -Command \"$ErrorActionPreference='Stop'; $legacy = Select-String -Path 'app/demo_blink/demo_blink.c','service/ui_service.c','system/sys_init.c','ui/menu_core.c','ui/menu_core.h','ui/menu_pages.c','ui/ui_event.h','hc_driver/key/hc_driver_key.c','hc_driver/oled/hc_driver_oled.c' -Pattern 'hc_driver/hc_driver_key.h|hc_driver/hc_driver_oled.h'; if ($legacy) { throw 'legacy root driver includes remain'; }; $internalLeak = Select-String -Path (Get-ChildItem -Recurse -File hc_driver,app,service,system,ui,examples,hc_middleware,hc_hal,hc_cfg,hc_common,scheduler,runtime | ForEach-Object FullName) -Pattern 'oled_hardware_i2c\\.h' | Where-Object { $_.Path -notlike '*hc_driver\\oled\\hc_driver_oled.c' -and $_.Path -notlike '*hc_driver\\oled\\oled_hardware_i2c.h' }; if ($internalLeak) { throw 'oled_hardware_i2c.h has external dependency'; }; if (-not (Test-Path 'hc_driver/key/hc_driver_key.h')) { throw 'missing hc_driver/key/hc_driver_key.h'; }; if (-not (Test-Path 'hc_driver/oled/hc_driver_oled.h')) { throw 'missing hc_driver/oled/hc_driver_oled.h'; }; if (Test-Path 'hc_driver/hc_driver_key.h') { throw 'legacy root key header still exists'; }; if (Test-Path 'hc_driver/hc_driver_oled.h') { throw 'legacy root oled header still exists'; }; if (Test-Path 'hc_driver/key/key.h') { throw 'legacy key compatibility header still exists'; }; git diff --check\"",
       "acceptance_criteria": [
-        "STM32 encoder 实现对 LEFT/RIGHT 的定时器选择通过 port cfg 宏驱动，而不是直接写死 htim3/htim4。",
-        "TIM_HandleTypeDef 仍然只出现在 STM32 port 实现内部，不回流到 driver 或 board 公共层。",
-        "本次修复不引入新的平台条件编译回到 hc_driver/encoder。"
+        "真实源码调用方不再包含 `hc_driver/hc_driver_key.h` 或 `hc_driver/hc_driver_oled.h`，而是统一切换到 `hc_driver/key/hc_driver_key.h` 与 `hc_driver/oled/hc_driver_oled.h`。",
+        "`hc_driver/key/hc_driver_key.h` 与 `hc_driver/oled/hc_driver_oled.h` 成为各自唯一正式公共头，`hc_driver/` 根目录下不再保留这两个具体驱动头。",
+        "`hc_driver/key/key.h` 被删除，避免 key 驱动出现双公共头；`hc_driver/oled/oled_hardware_i2c.h` 仅保留 `hc_driver/oled/hc_driver_oled.c` 内部依赖，不再承担公共入口职责。",
+        "Key 与 OLED 的现有公开函数名、返回值和调用语义保持不变，本次整改只影响头文件落点与 include 路径。"
       ],
       "stop_conditions": [
-        "如果要完成映射消费必须修改 CubeMX 生成文件，立即停止。",
-        "如果 hc_hal_board_cfg.h 现有宏不足以表达 LEFT/RIGHT 映射且必须扩散到 hc_cfg 公共层，立即停止。",
-        "如果解析 helper 需要被公共头文件暴露才能复用，立即停止。"
+        "如果执行过程中发现还存在 `allowed_files` 之外的真实调用方依赖根目录 key/oled 头文件，立即停止并汇报新增路径。",
+        "如果 `oled_hardware_i2c.h` 在执行时发现除 `hc_driver/oled/hc_driver_oled.c` 之外还有真实源码依赖，且无法仅在 `hc_driver/oled/` 内部收口，立即停止并汇报依赖点。",
+        "如果要完成整改必须保留新的根目录兼容头、README 例外说明或额外迁移层，立即停止；这与本次 strict move 规则冲突。",
+        "如果要完成整改必须改动 HAL、middleware、service 设计边界，或改变 key/oled 的现有 API 语义，立即停止。"
       ]
     }
   ]
