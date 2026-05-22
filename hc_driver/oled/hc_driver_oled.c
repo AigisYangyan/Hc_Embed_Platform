@@ -15,20 +15,20 @@
  * - 字库生成与中文字模维护
  *
  * 实现说明：
- * 1. 使用“全局实例 + Init 填充硬件绑定”方式管理 OLED 的 I2C 资源
+ * 1. 使用"全局实例 + Init 填充硬件绑定"方式管理 OLED 的 I2C 资源
  * 2. 所有对外接口最终都落到底层 HAL 的 I2C 写与总线恢复调用
  * 3. 通信异常时先执行一次 I2C 总线恢复，再重试当前发送
+ * 4. OLED_Init() 同步完成初始化，调用后即可进入可用状态
  *
  * 硬件绑定项：
- * - OLED 所在 I2C 通道
+ * - OLED 所在 I2C 通道（通过 hc_cfg/hc_board_cfg.h 的 HC_BOARD_I2C_CH_OLED）
  * - OLED 设备地址
- *
- * 若移植到其他 MCU，只需修改底层 I2C HAL 映射或本模块初始化绑定即可。
  */
 
 #include "hc_driver_oled.h"
 #include "oled_hardware_i2c.h"
 #include "hc_hal_systick.h"
+#include "hc_cfg/hc_board_cfg.h"
 #include "oledfont.h"
 
 /* ---- 静态配置与全局实例 ------------------------------------------------- */
@@ -38,15 +38,8 @@
 #define OLED_PAGE_COUNT 8u
 #define OLED_POWER_STABLE_DELAY_MS 200u
 
-typedef enum {
-    OLED_INIT_STATE_IDLE = 0,
-    OLED_INIT_STATE_WAIT_POWER_STABLE,
-    OLED_INIT_STATE_SEND_SEQUENCE,
-    OLED_INIT_STATE_READY
-} OLED_InitState_e;
-
 static const OLED_Bus_T s_tOledDefaultBus = {
-    HC_HAL_I2C_ID_OLED,
+    HC_BOARD_I2C_CH_OLED,
     OLED_I2C_ADDR
 };
 
@@ -58,18 +51,12 @@ static const uint8_t s_oled_init_cmds[] = {
 };
 
 OLED_T g_tOLED = {
-    { HC_HAL_I2C_ID_OLED, OLED_I2C_ADDR }
+    { HC_BOARD_I2C_CH_OLED, OLED_I2C_ADDR }
 };
 
-static OLED_InitState_e s_oled_init_state = OLED_INIT_STATE_IDLE;
-static HC_U32 s_oled_init_start_tick_ms = 0u;
+static HC_Bool_e s_oled_ready = HC_FALSE;
 
 /* ---- 静态辅助函数 ------------------------------------------------------- */
-
-static HC_Bool_e oled_is_ready_state(void)
-{
-    return (s_oled_init_state == OLED_INIT_STATE_READY) ? HC_TRUE : HC_FALSE;
-}
 
 static HC_Error_e oled_bus_recover(const OLED_T *p_oled)
 {
@@ -94,12 +81,6 @@ static HC_Error_e oled_write_packet(const OLED_T *p_oled, uint8_t dat,
     }
 
     return ret;
-}
-
-static HC_Bool_e oled_delay_elapsed(HC_U32 start_tick_ms, HC_U32 delay_ms,
-                                    HC_U32 current_tick_ms)
-{
-    return ((current_tick_ms - start_tick_ms) >= delay_ms) ? HC_TRUE : HC_FALSE;
 }
 
 static HC_Error_e oled_send_init_sequence(void)
@@ -304,7 +285,7 @@ HC_Error_e OLED_ShowString(uint8_t x, uint8_t y, const char *chr,
     uint8_t j = 0u;
     HC_Error_e ret;
 
-    if (chr == HC_NULL_PTR) {
+    if (chr == (void*)0) {
         return HC_HAL_ERR_NULL_PTR;
     }
 
@@ -370,52 +351,19 @@ void OLED_DrawBMP(uint8_t x, uint8_t y, uint8_t sizex, uint8_t sizey,
 
 void OLED_Init(void)
 {
-    HC_U32 tick_ms = 0u;
-
     g_tOLED.bus = s_tOledDefaultBus;
     oled_i2c_sda_unlock();
 
-    if (HC_HAL_SYSTICK_GetTickMs(&tick_ms) == HC_HAL_OK) {
-        s_oled_init_start_tick_ms = tick_ms;
-        s_oled_init_state = OLED_INIT_STATE_WAIT_POWER_STABLE;
-    }
-    else {
-        s_oled_init_start_tick_ms = 0u;
-        s_oled_init_state = OLED_INIT_STATE_SEND_SEQUENCE;
-    }
+    (void)HC_HAL_SYSTICK_DelayMs(OLED_POWER_STABLE_DELAY_MS);
+
+    (void)oled_send_init_sequence();
+    s_oled_ready = HC_TRUE;
 }
 
 HC_Error_e OLED_Process(void)
 {
-    HC_U32 tick_ms = 0u;
-    HC_Error_e ret;
-
-    if (s_oled_init_state == OLED_INIT_STATE_IDLE) {
+    if (s_oled_ready == HC_TRUE) {
         return HC_HAL_OK;
-    }
-
-    if (s_oled_init_state == OLED_INIT_STATE_WAIT_POWER_STABLE) {
-        ret = HC_HAL_SYSTICK_GetTickMs(&tick_ms);
-        if (ret != HC_HAL_OK) {
-            return ret;
-        }
-
-        if (oled_delay_elapsed(s_oled_init_start_tick_ms,
-                               OLED_POWER_STABLE_DELAY_MS,
-                               tick_ms) == HC_FALSE) {
-            return HC_HAL_OK;
-        }
-
-        s_oled_init_state = OLED_INIT_STATE_SEND_SEQUENCE;
-    }
-
-    if (s_oled_init_state == OLED_INIT_STATE_SEND_SEQUENCE) {
-        ret = oled_send_init_sequence();
-        if (ret != HC_HAL_OK) {
-            return ret;
-        }
-
-        s_oled_init_state = OLED_INIT_STATE_READY;
     }
 
     return HC_HAL_OK;
@@ -423,5 +371,5 @@ HC_Error_e OLED_Process(void)
 
 HC_Bool_e OLED_IsReady(void)
 {
-    return oled_is_ready_state();
+    return s_oled_ready;
 }

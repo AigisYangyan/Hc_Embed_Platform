@@ -2,12 +2,15 @@
 #define HC_BOARD_CFG_H
 
 #include "hc_target_cfg.h"
+#include "hc_hal_i2c.h"
+#include "hc_hal_uart.h"
 
 /*
  * hc_board_cfg.h — canonical board-level resource mapping.
  *
  * All pin, instance, and clock mappings that vary between boards or targets
- * live here.
+ * live here. Drivers reference these macros instead of hardcoding HAL channel
+ * values or platform-private names.
  */
 
 /* ── System clocks ─────────────────────────────────────────────────── */
@@ -31,5 +34,25 @@
 #define HC_BOARD_ENCODER_RIGHT_REVERSE            HC_FALSE
 #define HC_BOARD_ENCODER_RIGHT_PPR                11u
 #define HC_BOARD_ENCODER_RIGHT_QUADRATURE_MULTIPLE 4u
+
+/* ── I2C channel assignments (driver-facing) ──────────────────────── */
+#if defined(HC_TARGET_STM32F1)
+  #define HC_BOARD_I2C_CH_OLED         HC_HAL_I2C_CH_0
+  #define HC_BOARD_I2C_CH_EEPROM       HC_HAL_I2C_CH_0
+  #define HC_BOARD_I2C_CH_MPU6050      HC_HAL_I2C_CH_0
+#elif defined(HC_TARGET_MSPM0)
+  #define HC_BOARD_I2C_CH_OLED         HC_HAL_I2C_CH_0
+  #define HC_BOARD_I2C_CH_EEPROM       HC_HAL_I2C_CH_0
+  #define HC_BOARD_I2C_CH_MPU6050      HC_HAL_I2C_CH_0
+#endif
+
+/* ── UART channel assignments (driver-facing) ─────────────────────── */
+#if defined(HC_TARGET_STM32F1)
+  #define HC_BOARD_UART_CH_VOFA        HC_HAL_UART_CH_1
+  #define HC_BOARD_UART_CH_IMU         HC_HAL_UART_CH_2
+#elif defined(HC_TARGET_MSPM0)
+  #define HC_BOARD_UART_CH_VOFA        HC_HAL_UART_CH_0
+  #define HC_BOARD_UART_CH_IMU         HC_HAL_UART_CH_1
+#endif
 
 #endif /* HC_BOARD_CFG_H */

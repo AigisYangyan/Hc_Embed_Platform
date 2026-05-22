@@ -132,7 +132,7 @@ static void hc_hal_gpio_handle_irq(HC_HAL_GPIO_VPin_e vpin)
     HC_U8 i;
 
     for (i = 0u; i < s_gpio_irq_handler_count; i++) {
-        s_gpio_irq_handlers[i]((HC_HAL_GPIO_Pin_e)vpin);
+        s_gpio_irq_handlers[i](vpin);
     }
     HC_HAL_GPIO_Callback(vpin);
 }

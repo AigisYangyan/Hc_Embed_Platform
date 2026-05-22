@@ -212,7 +212,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
     if (vpin < VPIN_MAX) {
         for (i = 0u; i < s_gpio_irq_handler_count; i++) {
-            s_gpio_irq_handlers[i]((HC_HAL_GPIO_Pin_e)vpin);
+            s_gpio_irq_handlers[i](vpin);
         }
         HC_HAL_GPIO_Callback(vpin);
     }

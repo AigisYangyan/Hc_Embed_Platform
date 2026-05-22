@@ -1,7 +1,7 @@
 #ifndef __OLEDFONT_H
-#define __OLEDFONT_H 
+#define __OLEDFONT_H
 
-#include "ti_msp_dl_config.h"
+#include "hc_common/hc_types.h"
 
 /************************************6*8的点阵************************************/
 const unsigned char asc2_0806[][6] ={
