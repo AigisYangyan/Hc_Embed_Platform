@@ -6,11 +6,11 @@
 #define HC_HAL_ERR_I2C HC_ERR_UNKNOWN
 #endif
 
-extern const HC_VOID *g_stm32_i2c_handle_map[I2C_CH_MAX];
+extern const HC_VOID *g_stm32_i2c_handle_map[HC_HAL_I2C_CH_MAX];
 
 static I2C_HandleTypeDef *hc_hal_i2c_get_handle(HC_HAL_I2C_Ch_e ch)
 {
-    if ((HC_U32)ch >= (HC_U32)I2C_CH_MAX) {
+    if ((HC_U32)ch >= (HC_U32)HC_HAL_I2C_CH_MAX) {
         return (I2C_HandleTypeDef *)0;
     }
 

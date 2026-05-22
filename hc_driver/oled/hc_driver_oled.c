@@ -353,6 +353,7 @@ void OLED_Init(void)
 {
     HC_Error_e ret;
 
+    s_oled_ready = HC_FALSE;
     g_tOLED.bus = s_tOledDefaultBus;
     oled_i2c_sda_unlock();
 

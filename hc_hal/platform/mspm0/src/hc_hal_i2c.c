@@ -61,11 +61,11 @@
  * ========================================================================== */
 static I2C_Regs *GetI2CInst(HC_HAL_I2C_Ch_e ch)
 {
-    if ((ch == I2C_CH_OLED) || (ch == I2C_CH_AT24C02)) {
+    if (ch == HC_HAL_I2C_CH_0) {
         return (I2C_Regs *)HC_HAL_I2C_OLED_INST;
     }
 #ifdef HC_HAL_I2C_MPU6050_INST
-    if (ch == I2C_CH_MPU6050) {
+    if (ch == HC_HAL_I2C_CH_1) {
         return (I2C_Regs *)HC_HAL_I2C_MPU6050_INST;
     }
 #endif
@@ -78,7 +78,7 @@ static I2C_Regs *GetI2CInst(HC_HAL_I2C_Ch_e ch)
 
 HC_Error_e HC_HAL_I2C_Init(HC_HAL_I2C_Ch_e ch)
 {
-    if ((ch == I2C_CH_OLED) || (ch == I2C_CH_AT24C02)) {
+    if (ch == HC_HAL_I2C_CH_0) {
 #ifdef HC_HAL_I2C_OLED_INST
         /* Use SysConfig init if available */
         SYSCFG_DL_I2C_OLED_init();
@@ -87,7 +87,7 @@ HC_Error_e HC_HAL_I2C_Init(HC_HAL_I2C_Ch_e ch)
 #endif
     }
 #ifdef HC_HAL_I2C_MPU6050_INST
-    else if (ch == I2C_CH_MPU6050) {
+    else if (ch == HC_HAL_I2C_CH_1) {
         SYSCFG_DL_I2C_MPU6050_init();
     }
 #endif
