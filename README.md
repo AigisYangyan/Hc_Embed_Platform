@@ -37,7 +37,33 @@ framework/
 │   └── platform/{stm32,mspm0}/  #   平台 .c 实现与 cfg
 │
 ├── hc_driver/               # 设备驱动层（外设芯片驱动，禁止反向依赖上层）
-│   └── hc_driver_encoder.h/.c  #   编码器累计计数与四倍频解码
+│   ├── encoder/             #   hc-encoder 驱动子文件夹（对外头/实现/私有头在同目录收敛）
+│   │   ├── hc_driver_encoder.h
+│   │   └── hc_driver_encoder.c
+│   ├── key/                 #   hc-key 驱动子文件夹
+│   │   ├── hc_driver_key.h
+│   │   └── hc_driver_key.c
+│   ├── oled/                #   hc-oled 驱动子文件夹
+│   │   ├── hc_driver_oled.h
+│   │   └── hc_driver_oled.c
+│   ├── mpu6050/             #   hc-mpu6050 驱动子文件夹
+│   │   ├── hc_driver_mpu6050.h
+│   │   └── hc_driver_mpu6050.c
+│   ├── motor/               #   hc-motor 驱动子文件夹（H桥+PWM+编码器快照）
+│   │   ├── hc_driver_motor.h
+│   │   └── hc_driver_motor.c
+│   ├── stepper_emm42/       #   hc-stepper_emm42 驱动子文件夹（EMM42 协议组包+静态 transport 注入）
+│   │   ├── hc_driver_stepper_emm42.h
+│   │   └── hc_driver_stepper_emm42.c
+│   ├── imu/                 #   hc-imu 驱动子文件夹（UART 协议解析+传感器数据缓存）
+│   │   ├── hc_driver_imu_uart.h
+│   │   └── hc_driver_imu_uart.c
+│   ├── eeprom/              #   hc-eeprom 驱动子文件夹
+│   │   ├── at24cxx.h
+│   │   └── hc_driver_eeprom.c
+│   └── uart_vofa/           #   hc-uart_vofa 驱动子文件夹（VOFA 串口字节流出口）
+│       ├── hc_driver_uart_vofa.h
+│       └── hc_driver_uart_vofa.c
 │
 ├── hc_middleware/            # 通用中间件（协议栈、算法库、文件系统适配）
 │   └── ...
@@ -97,13 +123,14 @@ hc_task          可以依赖 hc_service / hc_middleware / hc_cfg / hc_common
 7. 所有数据结构编译期静态分配，禁止 malloc
 8. 禁止在 ISR 中做任何业务处理（仅标记/缓冲）
 9. 禁止向旧的 port/runtime/service/app/ui/scheduler/system 目录增加新模块或新耦合
+10. `hc_driver` 下的具体驱动必须收敛到各自子文件夹（如 `hc_driver/key/`、`hc_driver/oled/`、`hc_driver/encoder/`），禁止将具体驱动的对外头文件或实现文件散放在 `hc_driver/` 根目录
 ```
 
 ### 1.4 迁移状态
 
 | 旧目录 | 目标目录 | 状态 |
 |--------|---------|------|
-| `port/` | `hc_hal/` + `hc_driver/` | **已迁移**（公共头 + 平台实现 + encoder 已移至 canonical 目录，旧 port 仅保留兼容转发） |
+| `port/` | `hc_hal/` + `hc_driver/` | **已迁移**（公共头 + 平台实现已移至 canonical 目录；其中具体驱动必须继续收敛到 `hc_driver/<name>/` 子目录，旧 port 仅保留兼容转发） |
 | `runtime/` | `hc_task/` | 待迁移 |
 | `service/` | `hc_service/` | 待迁移 |
 | `app/` | `hc_app/` | 待迁移 |
@@ -113,7 +140,7 @@ hc_task          可以依赖 hc_service / hc_middleware / hc_cfg / hc_common
 | `hc_common/` | — | **已建立** |
 | `hc_cfg/` | — | **已建立**（含 target/board/module 三级配置） |
 | `hc_hal/` | — | **已建立**（14 个公共头 + stm32/mspm0 双平台实现） |
-| `hc_driver/` | — | **已建立**（encoder 编码器驱动） |
+| `hc_driver/` | — | **已建立**（采用 `hc_driver/<name>/` 子文件夹收敛具体驱动） |
 
 ### 1.5 目标平台覆盖
 
