@@ -18,8 +18,8 @@
 
 #include "scheduler/task_scheduler.h"
 #include "ui/menu_core.h"
-#include "hc_driver/hc_driver_oled.h"
-#include "hc_driver/hc_driver_key.h"
+#include "hc_driver/oled/hc_driver_oled.h"
+#include "hc_driver/key/hc_driver_key.h"
 
 /* ---- 公开 API ----------------------------------------------------------- */
 

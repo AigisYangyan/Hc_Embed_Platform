@@ -4,7 +4,7 @@
  */
 
 #include "app/demo_blink/demo_blink.h"
-#include "hc_driver/hc_driver_oled.h"
+#include "hc_driver/oled/hc_driver_oled.h"
 #include "service/telemetry_service.h"
 #include "ui/menu_core.h"
 

@@ -26,7 +26,7 @@
  * 若移植到其他 MCU，只需修改底层 I2C HAL 映射或本模块初始化绑定即可。
  */
 
-#include "../hc_driver_oled.h"
+#include "hc_driver_oled.h"
 #include "oled_hardware_i2c.h"
 #include "hc_hal_systick.h"
 #include "oledfont.h"

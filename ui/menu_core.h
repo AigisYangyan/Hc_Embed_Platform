@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 #include "hc_common/hc_types.h"
-#include "hc_driver/hc_driver_key.h"
+#include "hc_driver/key/hc_driver_key.h"
 
 #ifdef __cplusplus
 extern "C" {

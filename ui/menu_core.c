@@ -18,7 +18,7 @@
 #include "ui/menu_core.h"
 #include "ui/menu_pages.h"
 #include "runtime/runtime.h"
-#include "hc_driver/hc_driver_oled.h"
+#include "hc_driver/oled/hc_driver_oled.h"
 
 /* ---- 布局常量 ----------------------------------------------------------- */
 
