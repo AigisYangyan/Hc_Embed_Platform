@@ -70,6 +70,8 @@ static HC_VOID encoder_irq_handler(HC_HAL_GPIO_Pin_e pin)
 
 HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
 {
+    HC_Error_e err;
+
     if (id >= HC_HAL_ENCODER_ID_MAX) {
         return HC_HAL_ERR_INVALID;
     }
@@ -80,7 +82,10 @@ HC_Error_e HC_HAL_Encoder_Init(HC_HAL_Encoder_Id_e id)
         s_count_right = 0;
     }
 
-    HC_HAL_GPIO_RegisterIrqHandler(encoder_irq_handler);
+    err = HC_HAL_GPIO_RegisterIrqHandler(encoder_irq_handler);
+    if (err != HC_HAL_OK) {
+        return err;
+    }
     return HC_HAL_OK;
 }
 

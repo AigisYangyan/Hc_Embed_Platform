@@ -11,7 +11,17 @@ static HC_U8 s_gpio_irq_handler_count = 0u;
 
 HC_Error_e HC_HAL_GPIO_RegisterIrqHandler(HC_HAL_GPIO_IrqHandler_t handler)
 {
-    if (handler == HC_NULL_PTR || s_gpio_irq_handler_count >= HC_HAL_GPIO_MAX_IRQ_HANDLERS) {
+    HC_U8 i;
+
+    if (handler == HC_NULL_PTR) {
+        return HC_HAL_ERR_INVALID;
+    }
+    for (i = 0u; i < s_gpio_irq_handler_count; i++) {
+        if (s_gpio_irq_handlers[i] == handler) {
+            return HC_HAL_OK;
+        }
+    }
+    if (s_gpio_irq_handler_count >= HC_HAL_GPIO_MAX_IRQ_HANDLERS) {
         return HC_HAL_ERR_INVALID;
     }
     s_gpio_irq_handlers[s_gpio_irq_handler_count++] = handler;

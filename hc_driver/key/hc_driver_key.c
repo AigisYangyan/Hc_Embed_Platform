@@ -49,6 +49,8 @@ static volatile HC_Bool_e s_key_irq_pending[KEY_ID_COUNT];
 
 /* ---- 静态辅助函数 ------------------------------------------------------- */
 
+static void key_irq_handler(HC_HAL_GPIO_Pin_e pin);
+
 static HC_Bool_e key_is_valid(Key_Id_e key)
 {
     return ((int)key >= 0) && ((int)key < (int)KEY_ID_COUNT);
