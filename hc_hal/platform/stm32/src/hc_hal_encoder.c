@@ -4,10 +4,20 @@
 
 static TIM_HandleTypeDef* encoder_get_tim(HC_HAL_Encoder_Id_e id)
 {
+    HC_U32 tim;
+
     switch (id) {
-    case HC_HAL_ENCODER_ID_LEFT:   return &htim4;
-    case HC_HAL_ENCODER_ID_RIGHT:  return &htim3;
+    case HC_HAL_ENCODER_ID_LEFT:   tim = HC_HAL_ENCODER_TIM_LEFT;  break;
+    case HC_HAL_ENCODER_ID_RIGHT:  tim = HC_HAL_ENCODER_TIM_RIGHT; break;
     default:                       return HC_NULL_PTR;
+    }
+
+    switch (tim) {
+    case 1u:  return &htim1;
+    case 2u:  return &htim2;
+    case 3u:  return &htim3;
+    case 4u:  return &htim4;
+    default:  return HC_NULL_PTR;
     }
 }
 
