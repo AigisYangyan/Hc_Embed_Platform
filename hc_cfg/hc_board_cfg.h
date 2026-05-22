@@ -43,7 +43,7 @@
 #elif defined(HC_TARGET_MSPM0)
   #define HC_BOARD_I2C_CH_OLED         HC_HAL_I2C_CH_0
   #define HC_BOARD_I2C_CH_EEPROM       HC_HAL_I2C_CH_0
-  #define HC_BOARD_I2C_CH_MPU6050      HC_HAL_I2C_CH_0
+  #define HC_BOARD_I2C_CH_MPU6050      HC_HAL_I2C_CH_1
 #endif
 
 /* ── UART channel assignments (driver-facing) ─────────────────────── */
